@@ -6,4 +6,4 @@
 #define FOURDIMPARITY_ENC_H
 #endif //FOURDIMPARITY_ENC_H
 
-char* enc (char * data);
+bool* enc (bool * data);
