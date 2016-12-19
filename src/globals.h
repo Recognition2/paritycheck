@@ -7,7 +7,6 @@
 
 // Code properties
 #define DIM 4
-#define MATRIXSIZE 6
-
+#define MSIZE 6
 
 #endif //FOURDIMPARITY_GLOBALS_H
