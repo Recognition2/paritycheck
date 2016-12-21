@@ -6,8 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>        // Boolean values
-#include <memory.h>
-#include <math.h>			// Pow function only
+#include <math.h>
 
 // Include own files
 #include "enc.h"
@@ -24,14 +23,14 @@ int main(int argc, char *argv[]) {
 	// First, check whether the block size is larger than would fit into 4 bytes
 	if (powl((long double)MSIZE, (long double) DIM) > 4294967295) {
 		fprintf(stderr, "Maximum block size has been overridden!\n");
-		exit(-1);
+		exit(1);
 	}
     // Variable initialization
 	FILE *fp;
 	int datasize = (int) pow(MSIZE,DIM);						// in bits, size the data block
 	int blocksize = datasize + (MSIZE * DIM) + 1;				// in bits, amount of data in 1 block
 	int bitfactor = 4;				// Because hexadecimal
-	char *buff = calloc((size_t) datasize/bitfactor, sizeof(int));	// 1 hex char = 4 bits #HEXHARDCODE TODO: Fix hardcoded hex dep
+	char *buff = calloc((size_t) datasize/bitfactor + (datasize%bitfactor != 0), sizeof(int));	// 1 hex char = 4 bits #HEXHARDCODE TODO: Fix hardcoded hex dep
 	bool *data = calloc ((size_t) datasize, sizeof(bool));			// Data to be encoded
 	//TODO: Fix hardcoded dependency on hex data format
 
@@ -43,13 +42,19 @@ int main(int argc, char *argv[]) {
 
 	// Assumption is made that the (only) argument is the filename containing data to encode
 	fp = fopen(argv[1], "r");
+	if (fp == NULL) {
+		fprintf(stderr,"File does not exist!\n");
+		exit(1);
+	}
 
 	// Amount to read is always equal to size^dim
 	if (fgets(buff, datasize/bitfactor+1, fp) == NULL) {
-		printf("Error reading from file");
-		return -1;
+		fprintf(stderr,"Error reading from file");
+		exit(1);
 	}
 	fclose(fp);
+
+	// Decode read data
 	for (int i = 0; i < datasize/bitfactor; i ++) {
 		int t = (int) buff[i];	// tmp cast
 		u_int8_t mask = 0x1;
@@ -68,25 +73,52 @@ int main(int argc, char *argv[]) {
 			data[i * bitfactor + j] = (bool) (t & (mask << j));
 		}
 	}
-	printf("Dit werkt nog!\n");
-
+	free(buff);	// File reading buffer no longer needed
 	// At this point, data is a vector containing boolean representation of the data.
-	bool *encoded = enc(data);
+	bool *encoded = NULL;
+	encoded = enc(data);
+	// The encoded data contains ONLY the parity bits.
 
+	// Data is only needed for calculation of the parity bits
+	free(data);
 
-	// Decode the data..
-	char *enchex = calloc((size_t) (blocksize - datasize)/bitfactor, sizeof(char));
-	for (int i = 0; i < blocksize/bitfactor; i ++) {
-		static char hexconv[] = "0123456789abcdef";
+	////////////////////////////////
+	// Decode the returned vector
+	////////////////////////////////
+
+	// The amount of characters that needs to be reserved.
+	// In case of a nonzero modulo, one more bit needs to be allocated.
+	int psize = blocksize - datasize;
+	int charcount = psize/bitfactor + (psize%bitfactor != 0);
+	char *enchex = calloc((size_t) charcount, sizeof(char));
+
+	static char hexconv[] = "0123456789abcdef";			// The character set corresponding to hexadecimal encoding
+	//TODO: Fix hex dependency output
+
+	for (int i = 0; i < charcount; i++) {
+		// Convert all characters
 		int value = 0;
 		for (int j = 0; j < bitfactor; j++) {
-			value += encoded[bitfactor*i + j] << j;
+			if (bitfactor*i + j > psize) {
+				break;
+			}
+			value += (encoded[bitfactor*i + j] << (bitfactor - j -1)); // Shift the binary value to the left, equal to at most 3 shifts.
+		}
+		if (value > 15) {
+			fprintf(stderr, "\nDecoded data larger than 15 (%d), must not happen\n", value);
 		}
 		enchex[i] = hexconv[value];
 	}
 
-	printf("%s", enchex);
+	// Encoded data has been converted
 	free(encoded);
-	free(buff);
+
+	// Print the encoded parity bits
+	for (int i = 0; i < (psize) / bitfactor; i++ ){
+		printf("%c", enchex[i]);
+	}
+
+	// Characters have been printed
+	free(enchex);
     return 0;
 }
