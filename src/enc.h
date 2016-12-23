@@ -4,8 +4,8 @@
 
 #ifndef FOURDIMPARITY_ENC_H
 #define FOURDIMPARITY_ENC_H
-#endif //FOURDIMPARITY_ENC_H
 
 #include "globals.h"
-
 bool* enc (bool * data);
+
+#endif //FOURDIMPARITY_ENC_H

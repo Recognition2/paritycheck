@@ -13,16 +13,17 @@ bool* enc (bool* data) {
 	// First, check whether the block size is larger than would fit into 4 bytes
 	if (powl((long double)MSIZE, (long double) DIM) > 4294967294) {
 		fprintf(stderr, "Maximum block size has been overridden!\n");
-		exit(-1);
+		exit(EXIT_FAILURE);
 	}
 
-	int datasize = (int) pow(MSIZE,DIM);						// in bits, size the data block
-	int blocksize = datasize + (MSIZE * DIM) + 1;				// in bits, amount of data in 1 block
+	int dsize = (int) pow(MSIZE,DIM);						// in bits, size the data block
+	int bsize = dsize + (MSIZE * DIM) + 1;				// in bits, amount of data in 1 block
+    int psize = bsize - dsize;                                  // Amount of parity bits per block
 
 	bool m[MSIZE][MSIZE][MSIZE][MSIZE];							// Matrix that will be used for #DIM code
 	int parity[DIM][MSIZE] = {0};									// All DEC parity bits
 	bool sum = 0;
-	bool *encoded = calloc((size_t) blocksize - datasize, sizeof(bool));		// Encoded data, "result" of function
+	bool *encoded = calloc((size_t) bsize - dsize, sizeof(bool));		// Encoded data, "result" of function
 
 	// Fill the matrix with data.
 	unsigned int howfar = 0;			//TODO: If code is more than 4 GB long, this will fail.
@@ -41,7 +42,6 @@ bool* enc (bool* data) {
 			}
 		}
 	}
-
 
 	// Calculate code parity bits, every dimension separately
 	for (int i = 0; i < MSIZE; i++) {
@@ -82,6 +82,16 @@ bool* enc (bool* data) {
 	// The last parity bit, calculation of which has just been completed, now needs to be added to array that will be returned.
 	encoded[howfar] = (sum % 2) != 0;
 
-	return encoded;
+    // Printing stuff because I'm just straight up incompetent, and can't write code that works
+    for (int i = 0; i < psize; i++) {
+        printf("%d", encoded[i]);
+        if ((i % 4) == 3) {
+            printf("\n");
+        }
+    }
+    printf("\n");
+
+    // The encoded data contains ONLY the parity bits.
+    return encoded;
 }
 
