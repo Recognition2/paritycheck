@@ -17,13 +17,12 @@ bool* enc (bool* data) {
 	}
 
 	int dsize = (int) pow(MSIZE,DIM);						// in bits, size the data block
-	int bsize = dsize + (MSIZE * DIM) + 1;				// in bits, amount of data in 1 block
+	int bsize = dsize + 2*(MSIZE * DIM) + 1;				// in bits, amount of data in 1 block
     int psize = bsize - dsize;                                  // Amount of parity bits per block
 
-	bool m[MSIZE][MSIZE][MSIZE][MSIZE];							// Matrix that will be used for #DIM code
+	bool m[MSIZE][MSIZE][MSIZE][MSIZE];
 	int parity[DIM][MSIZE] = {0};									// All DEC parity bits
-	bool sum = 0;
-	bool *encoded = calloc((size_t) bsize - dsize, sizeof(bool));		// Encoded data, "result" of function
+	int sum = 0;
 
 	// Fill the matrix with data.
 	unsigned int howfar = 0;			//TODO: If code is more than 4 GB long, this will fail.
@@ -72,10 +71,15 @@ bool* enc (bool* data) {
 	 * While we're doing this, sum the parity bits, because the loop is there anyway.
 	 */
 	howfar = 0;
-	for (int i = 0; i < DIM; i++) {
+    bool *encoded = calloc((size_t) bsize - dsize, sizeof(bool));		// Encoded data, "result" of function
+    for (int i = 0; i < DIM; i++) {
 		for (int j = 0; j < MSIZE; j++) {
-			encoded[howfar] = (parity[i][j] % 2) != 0;
-			sum += encoded[howfar++] % 2;
+            bool *tmp = encodeGray(parity[i][j]);
+            encoded[2*howfar] = tmp[0];
+            encoded[2*howfar + 1] = tmp[1];
+			sum += parity[i][j];
+            howfar++;
+            free(tmp);
 		}
 	}
 
@@ -95,3 +99,13 @@ bool* enc (bool* data) {
     return encoded;
 }
 
+bool *encodeGray (int number) {
+    bool *gray;
+    gray = calloc(2, sizeof(bool));
+    u_int8_t mask = 0x1;
+    int num = number%4;
+    gray[0] = (bool) (num & (mask<<1));     // Shifted number
+    gray[1] = (bool) ((num & (mask<<1)) ^ (num & mask));    // XOR of both bits
+
+    return gray;
+}
