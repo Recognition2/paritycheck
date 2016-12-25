@@ -108,7 +108,7 @@ void writeHexToSTDOUT (bool *data) {
     // Decode the returned vector, and write to STDOUT
     ////////////////////////////////
     const int datasize = (int) pow(MSIZE,DIM);						// in bits, size the data block
-    const int blocksize = datasize + (MSIZE * DIM) + 1;				// in bits, amount of data in 1 block
+    const int blocksize = datasize + 2*(MSIZE * DIM) + 1;				// in bits, amount of data in 1 block
     const int psize = blocksize - datasize;
     int bitfactor = 4;				// Because hexadecimal
 
@@ -121,7 +121,7 @@ void writeHexToSTDOUT (bool *data) {
 
     for (int i = 0; i < charcount; i++) {
         // Convert all characters
-        int value = 0;
+        unsigned int value = 0;
         for (int j = 0; j < bitfactor; j++) {
             if (bitfactor*i + j > psize - 1) {
                 break;

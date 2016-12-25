@@ -20,7 +20,7 @@ bool *dec (bool *data, bool *parity) {
      * so wrong that everything goes to fucky
      */
 
-    if (powl((long double)MSIZE, (long double) DIM) > 4294967294) {
+    if (powl(MSIZE, DIM) > 4294967294) {
         fprintf(stderr, "Maximum block size has been overridden!\n");
         exit(1);
     }
