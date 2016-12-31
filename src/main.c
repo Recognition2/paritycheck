@@ -15,11 +15,10 @@
 // Declare functions used
 void printhelp(char *filename);                 // How to use function, and what went wrong?
 bool *readHexFromFile (char *filename);         // Return bits for usage
-void writeHexToSTDOUT (bool *data);             // Write encoded bits
-
+void writeHexToSTDOUT (bool *data, int amount);             // Write encoded bits
 
 int main(int argc, char *argv[]) {
-//    const int dsize = (int) pow(MSIZE,DIM);						// in bits, size the data block
+    const int dsize = (int) pow(MSIZE,DIM);						// in bits, size the data block
 //    const int bsize = dsize + (MSIZE * DIM) + 1;				// in bits, amount of data in 1 block
 //    const int psize = bsize - dsize;
     bool *encoded = NULL, *data = NULL;
@@ -40,24 +39,25 @@ int main(int argc, char *argv[]) {
     data = readHexFromFile(argv[1]);
 
 	// At this point, data is a vector containing boolean representation of the data.
-	encoded = enc(data);
+    encoded = enc(data);
 	// The encoded data contains ONLY the parity bits.
 
-    /////
     // Now do strange things with the data, like ABSOLUTELY DESTROYING IT
-    /////
 
+    int errors = dec(data, encoded);
+    if (errors == 10000) {
+        // Something went horribly wrong, data could not be decoded
+        exit(EXIT_FAILURE);
+    }
 
-    data = dec(data, encoded);
-	// Data is only needed for calculation of the parity bits
-
-    writeHexToSTDOUT(encoded);
+    writeHexToSTDOUT(data, dsize);
 
     free(data);
     free(encoded);
 }
 
 bool *readHexFromFile (char *filename) {
+
     const int datasize = (int) pow(MSIZE,DIM);						// in bits, size the data block
     int bitfactor = 4;				// Because hexadecimal
     char *buff = calloc((size_t) datasize/bitfactor + (datasize%bitfactor != 0), sizeof(int));	// 1 hex char = 4 bits #HEXHARDCODE
@@ -83,19 +83,19 @@ bool *readHexFromFile (char *filename) {
     for (int i = 0; i < datasize/bitfactor; i ++) {
         int t = (int) buff[i];	// tmp cast
         u_int8_t mask = 0x1;
-        if (t >= 47 && t <= 57) { 	// Character is 0-9, in hexadecimal
-            t -= 46;
+        if (t >= 48 &&  t <= 57) { 	// Character is 0-9, in hexadecimal
+            t -= 48;
         } else if (t >= 97 && t <= 102) { // Character is a-f in hexadecimal
-            t -= 96;
+            t -= (97-10);
         } else if (t == 0) {		// EOF
             break;
         } else { // Character is not in either range, so probably an Evil character. Just skip it.
-            fprintf(stderr,"This character is clearly not hexadecimal, go eat a bag of %d!", t);
+            fprintf(stderr, "This character is clearly not hexadecimal, go eat a bag of %d!", t);
             exit(EXIT_FAILURE);
         }
 
         for (int j = 0; j < bitfactor; j++) {
-            data[i * bitfactor + j] = (bool) (t & (mask << j));
+            data[i * bitfactor + j] = (bool) (t & (mask << (bitfactor - j - 1)));
         }
     }
     free(buff);	// File reading buffer no longer needed
@@ -103,37 +103,58 @@ bool *readHexFromFile (char *filename) {
     return data;
 }
 
-void writeHexToSTDOUT (bool *data) {
-    ////////////////////////////////
+void writeHexToSTDOUT (bool *data, int amount) {
+    const int dsize = (int) pow(MSIZE,DIM);						// in bits, size the data block
+//    const int bsize = dsize + (MSIZE * DIM) + 1;				// in bits, amount of data in 1 block
+//    const int psize = bsize - dsize;
+
     // Decode the returned vector, and write to STDOUT
-    ////////////////////////////////
-    const int datasize = (int) pow(MSIZE,DIM);						// in bits, size the data block
-    const int blocksize = datasize + 2*(MSIZE * DIM) + 1;				// in bits, amount of data in 1 block
-    const int psize = blocksize - datasize;
     int bitfactor = 4;				// Because hexadecimal
 
     // The amount of characters that needs to be reserved.
     // In case of a nonzero modulo, one more bit needs to be allocated.
-    int charcount = psize/bitfactor + (psize%bitfactor != 0);
+    int charcount = amount/bitfactor + (amount%bitfactor != 0);
     char *enchex = calloc((size_t) charcount, sizeof(char));
 
     static char hexconv[] = "0123456789abcdef";			// The character set corresponding to hexadecimal encoding
+    bool flag = true;
+    // attempt 2
+    for (int i = 0; i < charcount && flag; i++) {
 
+        short value = 0;
+        bool *tmp = data + i * bitfactor * sizeof(bool);
+        for (int j = 0; j < bitfactor; j++) {
+            if (i*bitfactor > dsize) {
+                flag = false;
+                break;
+            }
+            value += tmp[j] << (bitfactor - j - 1);
+        }
+        enchex[i] = hexconv[value];
+    }
+
+
+
+
+    /* old code
     for (int i = 0; i < charcount; i++) {
         // Convert all characters
-        unsigned int value = 0;
+        int value = 0;
         for (int j = 0; j < bitfactor; j++) {
             if (bitfactor*i + j > psize - 1) {
                 break;
             }
-            value += (data[bitfactor*i + j] << (bitfactor - j -1));
+            value += data[i*bitfactor + j] << (bitfactor - j - 1);
             // Shift the binary value to the left, equal to at most 3 shifts.
         }
         if (value > 15) {
-            fprintf(stderr, "\nDecoded data larger than 15 (%d), must not happen\n", value);
+            fprintf(stderr, "\nDecoded data larger than 15 (%d), can not happen\n", value);
+            exit(EXIT_FAILURE);
         }
         enchex[i] = hexconv[value];
+        printf("%d\n", value);
     }
+     */
 
     // Encoded data has been converted
 

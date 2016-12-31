@@ -11,7 +11,7 @@
 #include "enc.h"
 
 
-bool *dec (bool *data, bool *parity) {
+int dec (bool *data, bool *parity) {
     /*
      * Received data consists of both parity bits and data.
      * As such, these need to be seperated first.
@@ -52,8 +52,7 @@ bool *dec (bool *data, bool *parity) {
     // If exactly DIM, then 1 data bit flipped. Correct this, and everything is fine.
 
     // nonMatchPerDim stores the amount of differences in every dimension. Totaldiff is the sum of all parity bits.
-    int *nonMatchPerDim;
-    nonMatchPerDim = calloc(DIM, sizeof(int));
+    int *nonMatchPerDim = calloc(DIM, sizeof(int));
     int totaldiff = 0;
     for (int i = 0; i < DIM; i++) {
         for (int j = 0; j < MSIZE; j++) {
@@ -62,12 +61,10 @@ bool *dec (bool *data, bool *parity) {
             totaldiff += isDiff;
         }
     }
-
-    if (totaldiff == 0 || totaldiff == 1) {
+    if (totaldiff == 0 || totaldiff == 1 || totaldiff == 2) {
         // Zero errors occurred, everything is splendid
         // OR: One error occurred, the parity bit itself is in error and correction is not necessary.
         // Return the whole block. This includes the parity bits, but the caller should expect (and handle) only the data anyway.
-        return data;
     } else if (totaldiff == 4) {
         // Multiple options possible. The easiest is that exactly 1 data bit flipped, thus flipping four parity bits (one in every dimension).
         // First figure out which data bit is in error, correct it, and then return the block.
@@ -101,14 +98,16 @@ bool *dec (bool *data, bool *parity) {
             // We are not in luck. While a total amount of 4 errors has occurred, they are not spread nicely.
             // What the hell has happened?
             // TODO: What happened
+
+
         }
 
     } else { // totaldiff is not 0,1,4
         // Decoding could not be done successfully, thus failure is the only option
-        return NULL;
+        totaldiff = 10000;
     }
 
     free(enc_computed);
     free(nonMatchPerDim);
-    return NULL;
+    return totaldiff;
 }

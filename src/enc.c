@@ -18,7 +18,7 @@ bool* enc (bool* data) {
 
 	int dsize = (int) pow(MSIZE,DIM);						// in bits, size the data block
 	int bsize = dsize + 2*(MSIZE * DIM) + 1;				// in bits, amount of data in 1 block
-    int psize = bsize - dsize;                                  // Amount of parity bits per block
+//    int psize = bsize - dsize;                                  // Amount of parity bits per block
 
 	bool m[MSIZE][MSIZE][MSIZE][MSIZE];
 	int parity[DIM][MSIZE] = {0};									// All DEC parity bits
@@ -36,7 +36,8 @@ bool* enc (bool* data) {
 					 * The last parity bit is calculated by using ALL data bits, and all parity bits.
 					 * The first part is done here, because I've got this four-deep nested loop going already.
 					 */
-					sum += data[howfar++] % 2;
+					sum += data[howfar] % 4;
+                    howfar++;
 				}
 			}
 		}
@@ -87,13 +88,13 @@ bool* enc (bool* data) {
 	encoded[howfar] = (sum % 2) != 0;
 
     // Printing stuff because I'm just straight up incompetent, and can't write code that works
-    for (int i = 0; i < psize; i++) {
-        printf("%d", encoded[i]);
-        if ((i % 4) == 3) {
-            printf("\n");
-        }
-    }
-    printf("\n");
+//    for (int i = 0; i < psize; i++) {
+//        printf("%d", encoded[i]);
+//        if ((i % 4) == 3) {
+//            printf("\n");
+//        }
+//    }
+//    printf("\n");
 
     // The encoded data contains ONLY the parity bits.
     return encoded;
