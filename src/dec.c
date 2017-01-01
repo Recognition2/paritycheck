@@ -10,7 +10,6 @@
 #include "dec.h"
 #include "enc.h"
 
-
 int dec (bool *data, bool *parity) {
     /*
      * Received data consists of both parity bits and data.
@@ -36,6 +35,7 @@ int dec (bool *data, bool *parity) {
     bool cparity[DIM][MSIZE];       // Computed parity bits
     bool rparity[DIM][MSIZE];       // Read parity bits
     unsigned int howfar = 0;             //TODO: If code block is more than 4 GB long, then all will fail
+    bool m[MSIZE][MSIZE][MSIZE][MSIZE];
 
     // Fill in both parity blocks, to be compared later on.
     for (int i = 0; i < DIM; i++) {
@@ -45,6 +45,12 @@ int dec (bool *data, bool *parity) {
             howfar++;
         }
     }
+
+    for (int i = 0; i < MSIZE; i++)
+        for (int j = 0; j < MSIZE; j++)
+            for (int k = 0; k < MSIZE; k++)
+                for (int l = 0; l < MSIZE; l++)
+                    m[i][j][k][l] = data[howfar]; // Assign data to matrix
 
     // Walk through both matrices, check the amount of differences.
     // If zero, no error occurred (or SO MANY errors occurred, that's not worth mentioning)
@@ -89,7 +95,7 @@ int dec (bool *data, bool *parity) {
             // Which data bit does this correspond to in the original array of booleans?
             howfar = 0;
             for (int i = 0; i < DIM; i++) {
-                howfar += wrong[0] * pow(DIM,i);
+                howfar += wrong[0] * pow(MSIZE,i);
             }
 
             // Flip this bit
@@ -99,8 +105,8 @@ int dec (bool *data, bool *parity) {
             // What the hell has happened?
             // TODO: What happened
 
-
         }
+    } else if () {
 
     } else { // totaldiff is not 0,1,4
         // Decoding could not be done successfully, thus failure is the only option

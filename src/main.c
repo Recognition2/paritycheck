@@ -50,6 +50,8 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    printf("\n%d errors occurred\n", errors);
+
     writeHexToSTDOUT(data, dsize);
 
     free(data);
@@ -118,9 +120,7 @@ void writeHexToSTDOUT (bool *data, int amount) {
 
     static char hexconv[] = "0123456789abcdef";			// The character set corresponding to hexadecimal encoding
     bool flag = true;
-    // attempt 2
     for (int i = 0; i < charcount && flag; i++) {
-
         short value = 0;
         bool *tmp = data + i * bitfactor * sizeof(bool);
         for (int j = 0; j < bitfactor; j++) {
@@ -130,31 +130,12 @@ void writeHexToSTDOUT (bool *data, int amount) {
             }
             value += tmp[j] << (bitfactor - j - 1);
         }
-        enchex[i] = hexconv[value];
-    }
-
-
-
-
-    /* old code
-    for (int i = 0; i < charcount; i++) {
-        // Convert all characters
-        int value = 0;
-        for (int j = 0; j < bitfactor; j++) {
-            if (bitfactor*i + j > psize - 1) {
-                break;
-            }
-            value += data[i*bitfactor + j] << (bitfactor - j - 1);
-            // Shift the binary value to the left, equal to at most 3 shifts.
-        }
         if (value > 15) {
-            fprintf(stderr, "\nDecoded data larger than 15 (%d), can not happen\n", value);
+            fprintf(stderr, "\nEncoded data larger than 15 (%d), cannot happen\n", value);
             exit(EXIT_FAILURE);
         }
         enchex[i] = hexconv[value];
-        printf("%d\n", value);
     }
-     */
 
     // Encoded data has been converted
 
