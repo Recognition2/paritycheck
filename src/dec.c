@@ -71,6 +71,7 @@ int dec (bool *data, bool *parity) {
         // Zero errors occurred, everything is splendid
         // OR: One error occurred, the parity bit itself is in error and correction is not necessary.
         // Return the whole block. This includes the parity bits, but the caller should expect (and handle) only the data anyway.
+
     } else if (totaldiff == 4) {
         // Multiple options possible. The easiest is that exactly 1 data bit flipped, thus flipping four parity bits (one in every dimension).
         // First figure out which data bit is in error, correct it, and then return the block.
@@ -81,6 +82,7 @@ int dec (bool *data, bool *parity) {
                 break;
             }
         }
+
         if (onlyOneError) {
             // We are in luck, only one error in every dimension.
             // Correction fairly simple: flip the one data bit that is incorrect.
