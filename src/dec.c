@@ -15,42 +15,56 @@ int dec (bool *data, bool *parity) {
      * Received data consists of both parity bits and data.
      * As such, these need to be seperated first.
      * Then, the data needs to be encoded, and compared to the result, which is the difficult part.
-     * Viterbi decoding will be used for determining what to do, and an error message will be returned if things go
-     * so wrong that everything goes to fucky
+     * First, we need to establish what type of error has occurred.
+     * Then, correction needs to take place.
      */
 
-    if (powl(MSIZE, DIM) > 4294967294) {
-        fprintf(stderr, "Maximum block size has been overridden!\n");
-        exit(1);
-    }
-
-    // First, declarations
-//    const int dsize = (int) pow(MSIZE,DIM);                       // in bits, size the data block
-//    const int bsize = dsize + (MSIZE * DIM) + 1;				    // in bits, amount of data in 1 block
-//    int psize = bsize - dsize;                              // Amount of parity bits per block
-
+    const int dsize = MSIZE*MSIZE;              // Data block size
+    const int psize = 6*MSIZE + 3;              // Parity size
+    const int bsize = dsize + psize;            // Total block size
 
     bool *enc_computed;             // The parity code that is computed, dwz should be.
     enc_computed = enc(data);
-    bool cparity[DIM][MSIZE];       // Computed parity bits
-    bool rparity[DIM][MSIZE];       // Read parity bits
+
+    // Memory allocation
+    bool **matrix = calloc(MSIZE, sizeof(bool));    // Data matrix
+    for (int i = 0; i < MSIZE; i++) {
+        matrix[i] = calloc(MSIZE, sizeof(bool));    // Sub vectors of data matrix
+    }
+
+    // Note: These arrays are "jagged arrays"
+    bool **cpar = calloc(DIM, sizeof(bool));      // All parity bits
+    bool **rpar = calloc(DIM, sizeof(bool));      // All parity bits
+    for (int i = 0; i < 2; i++) {
+        cpar[i] = calloc(MSIZE + 1, sizeof(bool));    // Horz & vert direction
+        cpar[i + 2] = calloc(MSIZE * 2 - 1, sizeof(bool));    // Diag & anti-diag direction
+        rpar[i] = calloc(MSIZE + 1, sizeof(bool));    // Horz & vert direction
+        rpar[i + 2] = calloc(MSIZE * 2 - 1, sizeof(bool));    // Diag & anti-diag direction
+    }
+
+
     unsigned int howfar = 0;             //TODO: If code block is more than 4 GB long, then all will fail
-    bool m[MSIZE][MSIZE][MSIZE][MSIZE];
 
     // Fill in both parity blocks, to be compared later on.
     for (int i = 0; i < DIM; i++) {
-        for (int j = 0; j < MSIZE; j++) {
-            cparity[i][j] = enc_computed[howfar];
-            rparity[i][j] = parity[howfar];
+        int upperBound;
+        if (i < 2)
+            upperBound = MSIZE+1;
+        else
+            upperBound = 2*MSIZE - 1;
+
+        for (int j = 0; j < upperBound; j++) {
+            cpar[i][j] = enc_computed[howfar];
+            rpar[i][j] = parity[howfar];
             howfar++;
         }
     }
 
+    // Fill the matrix with data.
+    unsigned int howfar = 0;
     for (int i = 0; i < MSIZE; i++)
         for (int j = 0; j < MSIZE; j++)
-            for (int k = 0; k < MSIZE; k++)
-                for (int l = 0; l < MSIZE; l++)
-                    m[i][j][k][l] = data[howfar]; // Assign data to matrix
+            matrix[i][j] = data[howfar++];
 
     // Walk through both matrices, check the amount of differences.
     // If zero, no error occurred (or SO MANY errors occurred, that's not worth mentioning)

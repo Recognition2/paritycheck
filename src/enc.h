@@ -6,7 +6,6 @@
 #define FOURDIMPARITY_ENC_H
 
 #include "globals.h"
-bool* enc (bool * data);
-bool *encodeGray (int number);
+bool *enc (bool *data);
 
 #endif //FOURDIMPARITY_ENC_H
