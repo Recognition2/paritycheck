@@ -20,8 +20,8 @@ void writeHexToSTDOUT (bool *data, int amount);             // Write encoded bit
 
 int main(int argc, char *argv[]) {
     const int dsize = MSIZE*MSIZE;            // Data block size
-    const int psize = 6*MSIZE + 3;            // Parity size
-    const int bsize = dsize + psize;          // Total block size
+//    const int psize = 6*MSIZE + 3;            // Parity size
+//    const int bsize = dsize + psize;          // Total block size
     bool *encoded = NULL, *data = NULL;
 
     // First, check whether the block size is larger than would fit into 4 bytes
@@ -39,25 +39,14 @@ int main(int argc, char *argv[]) {
 	// Assumption is made that the (only) argument is the filename containing data to encode
     data = readHexFromFile(argv[1], dsize);
 
-    struct timespec ts1, ts2;
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts1);
     // At this point, data is a vector containing boolean representation of the data.
     encoded = enc(data);
 
     // The encoded data contains ONLY the parity bits.
-    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts2);
-    double posix_dur = 1000.0*ts2.tv_sec + 1e-6*ts2.tv_nsec - (1000.0*ts1.tv_sec + 1e-6*ts1.tv_nsec);
-    printf("Time difference: %f seconds\n",posix_dur);
+
     // Now do strange things with the data, like ABSOLUTELY DESTROYING IT
 
-    int errors = dec(data, encoded);
-    if (errors == 10000) {
-        // Something went horribly wrong, data could not be decoded
-        printf("HALP\n");
-    }
-
-
-    printf("\n%d errors occurred\n", errors);
+    //int errors = dec(data, encoded);
 
     writeHexToSTDOUT(data, dsize);
 
@@ -110,13 +99,13 @@ void writeHexToSTDOUT (bool *data, int amount) {
     // The amount of characters that needs to be reserved.
     // In case of a nonzero modulo, one more bit needs to be allocated.
     int charcount = amount/bitfactor + (amount%bitfactor != 0);
-    char *enchex = calloc((size_t) charcount, sizeof(char));
+    char *enchex = calloc((size_t) charcount, sizeof(*enchex));
 
     static char hexconv[] = "0123456789abcdef";			// The character set corresponding to hexadecimal encoding
     bool flag = true;
     for (int i = 0; i < charcount && flag; i++) {
         short value = 0;
-        bool *tmp = data + i * bitfactor * sizeof(bool);
+        bool *tmp = data + i * bitfactor * sizeof(*tmp);
         for (int j = 0; j < bitfactor; j++) {
             if (i*bitfactor > amount) {
                 flag = false;

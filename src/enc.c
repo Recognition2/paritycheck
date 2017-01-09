@@ -4,7 +4,6 @@
 
 #include <stdbool.h>
 #include <stdlib.h>
-#include <math.h>
 #include <stdio.h>
 
 #include "enc.h"
@@ -16,16 +15,15 @@ bool *enc (bool *data) {
 //    const int bsize = dsize + psize;                // Total block size
 
     // Memory allocation
-    bool **matrix = calloc(MSIZE, sizeof(bool));    // Data matrix
-    for (int i = 0; i < MSIZE; i++) {
-        matrix[i] = calloc(MSIZE, sizeof(bool));    // Sub vectors of data matrix
-    }
+    bool **matrix = calloc(MSIZE, sizeof(*matrix));    // Data matrix
+    for (int i = 0; i < MSIZE; i++)
+        matrix[i] = calloc(MSIZE, sizeof(*matrix[i]));    // Sub vectors of data matrix
 
     // Note: This array is a "jagged array"
-    bool **parity = calloc(DIM, sizeof(bool));      // All parity bits
+    bool **parity = calloc(DIM, sizeof(*parity));      // All parity bits
     for (int i = 0; i < 2; i++) {
-        parity[i] = calloc(MSIZE + 1, sizeof(bool));    // Horz & vert direction
-        parity[i + 2] = calloc(MSIZE * 2 - 1, sizeof(bool));    // Diag & anti-diag direction
+        parity[i] = calloc(MSIZE + 1, sizeof(*parity[i]));    // Horz & vert direction
+        parity[i + 2] = calloc(MSIZE * 2 - 1, sizeof(*parity[i+2]));    // Diag & anti-diag direction
     }
 
 	// Fill the matrix with data.
@@ -51,6 +49,7 @@ bool *enc (bool *data) {
 
             parity[2][i+j] ^= matrix[i][j];  // Diagonal
             parity[3][MSIZE - 1 - i + j] ^= matrix[i][j];   // Cross diagonal
+            // This last one took approx 3 hours to figure out. Really annoying.
             }
     }
 
@@ -60,24 +59,16 @@ bool *enc (bool *data) {
     free(matrix);
 
     // Calculate final parity bits
-    for (int j = 0; j < 2; j++) {
-        for (int i = 0; i < MSIZE; i++)
-            parity[j][MSIZE] ^= parity[j][i];
-
-        for (int i = 0; i < (2*MSIZE-2); i++)
-            parity[2+j][2 * MSIZE - 2] ^= parity[2+j][i];
+    for (int i = 0; i < DIM; i++) {
+        int max = ((i < 2) ? MSIZE : 2 * MSIZE - 2);
+        for (int j = 0; j < max; j++)
+            parity[i][max] ^= parity[i][j];
     }
 
     // Printing stuff because I'm just straight up incompetent, and can't write code that works
     printf("Printing all parity bits:\n");
-    for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < (MSIZE + 1); j++) {
-            printf("%d", parity[i][j]);
-        }
-        printf("\n");
-    }
-    for (int i = 2; i < 4; i++) {
-        for (int j = 0; j < (2*MSIZE - 1); j++) {
+    for (int i = 0; i < DIM; i++) {
+        for (int j = 0; j < ((i < 2) ? MSIZE+1 : 2*MSIZE-1); j++) {
             printf("%d", parity[i][j]);
         }
         printf("\n");
@@ -85,14 +76,10 @@ bool *enc (bool *data) {
     printf("\n");
 
     // Encode parity data into one long bitstream
-    bool *encoded = calloc(psize, sizeof(bool));
+    bool *encoded = calloc(psize, sizeof(*encoded));
     howfar = 0;
     for (int i = 0; i < 2; i++)
-        for (int j = 0; j < (MSIZE + 1); j++)
-            encoded[howfar++] = parity[i][j];
-
-    for (int i = 2; i < 4; i++)
-        for (int j = 0; j < (2*MSIZE - 1); j++)
+        for (int j = 0; j <  ((i < 2) ? MSIZE+1 : 2*MSIZE-1); j++)
             encoded[howfar++] = parity[i][j];
 
     // At this point, the parity bits are no longer needed
