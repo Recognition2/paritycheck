@@ -20,7 +20,7 @@ void writeHexToSTDOUT (bool *data, int amount);             // Write encoded bit
 
 int main(int argc, char *argv[]) {
     const int dsize = MSIZE*MSIZE;            // Data block size
-//    const int psize = 6*MSIZE + 3;            // Parity size
+    const int psize = 6*MSIZE + 3;            // Parity size
 //    const int bsize = dsize + psize;          // Total block size
     bool *encoded = NULL, *data = NULL;
 
@@ -48,7 +48,7 @@ int main(int argc, char *argv[]) {
 
     //int errors = dec(data, encoded);
 
-    writeHexToSTDOUT(data, dsize);
+    writeHexToSTDOUT(data, psize);
 
     free(data);
     free(encoded);

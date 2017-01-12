@@ -11,7 +11,7 @@
 bool *enc (bool *data) {
     // Init
 //    const int dsize = MSIZE*MSIZE;                  // Data block size
-    const int psize = 6*MSIZE + 3;                  // Parity size
+    const int psize = 6*MSIZE + 2;                  // Parity size
 //    const int bsize = dsize + psize;                // Total block size
 
     // Memory allocation
