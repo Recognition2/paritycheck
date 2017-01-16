@@ -79,6 +79,7 @@ int dec (bool *data, bool *parity) {
     // Determine which one
     for (int i = 0; i < DIM; i++) {
         for (int j = 0; j < ((i < 2) ? MSIZE : 2 * MSIZE - 2); j++) {
+            // This loop does explicitly NOT include the parity-of-parity bits.
             bool isDiff = (cpar[i][j] != rpar[i][j]);      // Is there a difference in the parity bits?
             nonMatchPerDim[i] += isDiff;                    // The parity of parities is excluded
             totaldiff += isDiff;
@@ -228,47 +229,50 @@ int correctTwo(bool ***m, bool ***cpar, bool ***rpar) {
     }
     // whereE contains  the location of all flipped parity bits.
     // There are 16 possible scenario's, of which 8 are relevant. Those 8 flipped parity bits correspond to
-    // 2 flipped data bits, which means that 4 parities belong to 1 data bit. The trick is figuring out which.
+    // 2 flipped data bits, which means that 4 pariti   es belong to 1 data bit. The trick is figuring out which.
     // The ordering is done by assuming the first one is correct (whereE[0][0]), and figuring the rest out.
     // Because this assumption can be safely made, only half the possible scenario's are relevant.
     // Because we don't care which data bit is "first", only that all parity bits belong to the correct data bit.
+    // Thus, we look at 8 scenario's, given the different states of all bits. 0 means that they are corresponding to the first
+    // bit, X means unknown, and 1 means the parity bits need to be flipped.
 
-    if (whereE[0][0] + whereE[1][0] == whereE[2][0]) {
+    if (whereE[0][0] + whereE[1][0] != whereE[2][0] && whereE[0][0] + whereE[1][0] != whereE[2][1]) {
+        // Scenario: (0 1 X X)
+        swap(&whereE[1][0], &whereE[1][1]);
+    }
+
+    if (whereE[0][0] + whereE[1][0] == whereE[2][0]) { // Scenario: 0 0 0 X
         // First three are correct
-        if (MSIZE - 1 - whereE[0][0] + whereE[1][0] == whereE[3][1]) {
+        if (MSIZE - 1 - whereE[0][0] + whereE[1][0] == whereE[3][1]) { // Scenario: 0 0 0 1
             // Only fourth one is incorrect
             swap(&whereE[3][0], &whereE[3][1]);
-        } else if (MSIZE - 1 - whereE[0][0] + whereE[1][0] != whereE[3][0]) {
-            // Something fucked up tremendously
+        } else if (MSIZE - 1 - whereE[0][0] + whereE[1][0] != whereE[3][0]) { // Scenario non-conform.
+            // Something fucked up tremendously, fourth one is STILL incorrect
             fprintf(stderr, "Something went horribly wrong");
             return(10000);
         }
-    } else if (whereE[0][0] + whereE[1][0] == whereE[2][1]) { // Third one is incorrect
+    } else if (whereE[0][0] + whereE[1][0] == whereE[2][1]) { // Third one is incorrect (0 0 1 X)
         swap(&whereE[2][0], &whereE[2][1]);
 
         // Check the fourth one
-        if (MSIZE - 1 - whereE[0][0] + whereE[1][0] == whereE[3][1]) // Fourth incorrect
+        if (MSIZE - 1 - whereE[0][0] + whereE[1][0] == whereE[3][1]) // Scenario (0 0 0 1)
             swap(&whereE[4][0], &whereE[4][1]);
-    }
-
-
-
-    if (whereE[0][0] + whereE[1][0] != whereE[2][0]) {
-        if (whereE[0][1] + whereE[1][1] == whereE[2][1]) {
-            // One failed, the other succeeded. This is impossible.
-            return 3;
+        else if (MSIZE - 1 - whereE[0][0] + whereE[1][0] != whereE[3][0]) { // Scenario: (0 0 0 NON-CONFORM)
+            fprintf(stderr, "Something went horribly wrong");
+            return(10000);
         }
-        swap(&whereE[0][0], &whereE[0][1]);
+    } else {
+        // Completely broken
+        fprintf(stderr, "Something went horribly wrong");
+        return(9999);
     }
-
-
 
     // Final assertion:
     for (int i = 0; i < 2; i++) {
         bool isDiagCorrect = (whereE[0][i] + whereE[1][i] == whereE[2][i]);
         bool isCrossCorrect = (MSIZE - 1 - whereE[0][i] + whereE[1][i] == whereE[3][i]);
         if (!(isDiagCorrect && isCrossCorrect))
-            return 4; // Clearly the ordering went wrong.
+            return 4; // Clearly the 'fixing' went wrong.
     }
 
     for (int i = 0; i < 2; i++) { // The actual flipping.

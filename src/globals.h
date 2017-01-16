@@ -7,7 +7,7 @@
 
 // Code properties
 #define DIM     4
-#define MSIZE   4
+#define MSIZE   128
 /*
  * MSIZE of 128 gives:
  * dsize = 16384

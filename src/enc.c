@@ -66,14 +66,14 @@ bool *enc (bool *data) {
     }
 
     // Printing stuff because I'm just straight up incompetent, and can't write code that works
-    printf("Printing all parity bits:\n");
-    for (int i = 0; i < DIM; i++) {
-        for (int j = 0; j < ((i < 2) ? MSIZE+1 : 2*MSIZE-1); j++) {
-            printf("%d", parity[i][j]);
-        }
-        printf("\n");
-    }
-    printf("\n");
+//    printf("Printing all parity bits:\n");
+//    for (int i = 0; i < DIM; i++) {
+//        for (int j = 0; j < ((i < 2) ? MSIZE+1 : 2*MSIZE-1); j++) {
+//            printf("%d", parity[i][j]);
+//        }
+//        printf("\n");
+//    }
+//    printf("\n");
 
     // Encode parity data into one long bitstream
     bool *encoded = calloc(psize, sizeof(*encoded));

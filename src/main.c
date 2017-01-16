@@ -15,14 +15,17 @@
 
 // Declare functions used
 void printhelp(char *filename);                 // How to use function, and what went wrong?
-bool *readHexFromFile (char *filename, int amount);         // Return bits for usage
+bool *readHexFromFile (FILE *fp, int amount);         // Return bits for usage
 void writeHexToSTDOUT (bool *data, int amount);             // Write encoded bits
+long double convertTime(struct timespec a, struct timespec b);
 
 int main(int argc, char *argv[]) {
     const int dsize = MSIZE*MSIZE;            // Data block size
-    const int psize = 6*MSIZE + 3;            // Parity size
+    const int psize = 6*MSIZE + 2;            // Parity size
 //    const int bsize = dsize + psize;          // Total block size
-    bool *encoded = NULL, *data = NULL;
+
+    // Initialize timers
+    struct timespec zero, readDone, encDone, decDone;
 
     // First, check whether the block size is larger than would fit into 4 bytes
 	if (powl((long double)MSIZE, 2) > 4294967295) {
@@ -36,57 +39,86 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-	// Assumption is made that the (only) argument is the filename containing data to encode
-    data = readHexFromFile(argv[1], dsize);
+    // Open file
+    FILE *fp;
+    fp = fopen(argv[1], "r");
 
-    // At this point, data is a vector containing boolean representation of the data.
-    encoded = enc(data);
-
-    // The encoded data contains ONLY the parity bits.
-
-    // Now do strange things with the data, like ABSOLUTELY DESTROYING IT
-
-    //int errors = dec(data, encoded);
-
-    writeHexToSTDOUT(data, psize);
-
-    free(data);
-    free(encoded);
-}
-
-bool *readHexFromFile (char *filename, int amount) {
-    int bitfactor = 4;				// Because hexadecimal
-    bool *data = calloc ((size_t) amount, sizeof(bool));			// Data to be encoded
-
-    FILE *fp;   // File pointer
-    fp = fopen(filename, "r");
     if (fp == NULL) {
         fprintf(stderr, "File does not exist!\n");
         exit(EXIT_FAILURE);
     }
 
+    // Encode n blocks
+    int n = 7500;
+    bool **raw = calloc((size_t) n, sizeof(*raw)); // Allocate storage for all raw data bits
+    bool **encoded = calloc((size_t) n, sizeof(*encoded));
+
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &zero);
+
+    for (int i = 0; i < n; i++) { // Reading must happen between fopen and fclose calls
+        raw[i] = readHexFromFile(fp, dsize);
+    }
+
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &readDone);
+
+    // At this point, data is a vector containing boolean representation of the data.
+    for (int i = 0; i < n; i++) {
+        encoded[i] = enc(raw[i]);
+    }
+
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &encDone);
+
+    // The encoded data contains ONLY the parity bits.
+    printf("\n");
+    // Now do strange things with the data, like ABSOLUTELY DESTROYING IT
+
+    for (int i = 0; i < n; i++) {
+        dec(raw[i], encoded[i]);
+    }
+
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &decDone);
+
+    writeHexToSTDOUT(raw[2], dsize);
+    writeHexToSTDOUT(encoded[2], psize);
+
+    // Print timings;
+    printf("Reading took %Le seconds\n", convertTime(readDone, zero));
+    printf("Encoding took %Le seconds\n", convertTime(encDone, readDone));
+    printf("Decoding took %Le seconds\n", convertTime(decDone, encDone));
+
+    fclose(fp); // Reading complete
+
+    for (int i = 0; i < n; i++) {
+        free(raw[i]);
+        free(encoded[i]);
+    }
+    free(raw);
+    free(encoded);
+}
+
+bool *readHexFromFile (FILE *fp, int amount) {
+    int bitfactor = 4;				// Because hexadecimal
+    bool *data = calloc ((size_t) amount, sizeof(bool));			// Data to be encoded
+
     // Read & decode datas
     int i = 0;
-    while (i < amount/bitfactor-1) {
+    while (i < amount/bitfactor+1) {
         int t = fgetc(fp);
-        u_int8_t mask = 0x1;
 
         if (t >= 48 &&  t <= 57) { 	// Character is 0-9, in hexadecimal
             t -= 48;
-            i++;
         } else if (t >= 97 && t <= 102) { // Character is a-f in hexadecimal
             t -= (97-10);
-            i++;
         } else if (feof(fp) != 0) { // EOF has occurred
             fprintf(stderr,"End of file was reached before all necessary characters could be read out.");
             exit(EXIT_FAILURE);
         }
 
-        for (int j = 0; j < bitfactor; j++) {
-            data[i * bitfactor + j] = (bool) (t & (mask << (bitfactor - j - 1)));
+        for (int j = 0; (j < bitfactor) && ((i*bitfactor+j) < amount); j++) {
+            data[i * bitfactor + j] = (bool) (t & (0x1 << (bitfactor - j - 1)));
         }
+        i++;
     }
-    fclose(fp);     // Reading complete, file not necessary anymore.
 
     // At this point, data is a vector containing boolean representation of the data.
     return data;
@@ -118,14 +150,18 @@ void writeHexToSTDOUT (bool *data, int amount) {
 
     // Encoded data has been converted
 
-    // Print the encoded parity bits
+    // Print the encoded bits
     for (int i = 0; i < charcount; i++ ){
         printf("%c", enchex[i]);
     }
-
+    printf("\n");
     // Characters have been printed
     free(enchex);
     return;
+}
+
+long double convertTime(struct timespec a, struct timespec b) {
+    return 1e-9*(a.tv_nsec - b.tv_nsec) + difftime(a.tv_sec, b.tv_sec);
 }
 
 void printhelp(char *filename) {    // Help function
