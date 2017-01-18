@@ -23,7 +23,7 @@ bool *enc (bool *data) {
     bool **parity = calloc(DIM, sizeof(*parity));      // All parity bits
     for (int i = 0; i < 2; i++) {
         parity[i] = calloc(MSIZE + 1, sizeof(*parity[i]));    // Horz & vert direction
-        parity[i + 2] = calloc(MSIZE * 2 - 1, sizeof(*parity[i+2]));    // Diag & anti-diag direction
+        parity[i + 2] = calloc(MSIZE * 2, sizeof(*parity[i+2]));    // Diag & anti-diag direction
     }
 
 	// Fill the matrix with data.
@@ -60,27 +60,31 @@ bool *enc (bool *data) {
 
     // Calculate final parity bits
     for (int i = 0; i < DIM; i++) {
-        int max = ((i < 2) ? MSIZE : 2 * MSIZE - 2);
+        int max = ((i < 2) ? MSIZE : 2 * MSIZE - 1);
         for (int j = 0; j < max; j++)
             parity[i][max] ^= parity[i][j];
+        // exclude the parity-of-parities in the calculation of itself, so for loop goes one less than possible.
     }
 
     // Printing stuff because I'm just straight up incompetent, and can't write code that works
-//    printf("Printing all parity bits:\n");
-//    for (int i = 0; i < DIM; i++) {
-//        for (int j = 0; j < ((i < 2) ? MSIZE+1 : 2*MSIZE-1); j++) {
-//            printf("%d", parity[i][j]);
-//        }
-//        printf("\n");
-//    }
-//    printf("\n");
+    printf("Printing all parity bits:\n");
+    for (int i = 0; i < DIM; i++) {
+        for (int j = 0; j < ((i < 2) ? MSIZE+1 : 2*MSIZE); j++) {
+            printf("%d", parity[i][j]);
+        }
+        printf("\n");
+    }
+    printf("\n");
 
     // Encode parity data into one long bitstream
     bool *encoded = calloc(psize, sizeof(*encoded));
     howfar = 0;
-    for (int i = 0; i < 2; i++)
-        for (int j = 0; j <  ((i < 2) ? MSIZE+1 : 2*MSIZE-1); j++)
+    for (int i = 0; i < 4; i++) {
+        int max = ((i < 2) ? MSIZE + 1 : 2 * MSIZE);
+        for (int j = 0; j < max; j++) {
             encoded[howfar++] = parity[i][j];
+        }
+    }
 
     // At this point, the parity bits are no longer needed
     for (int i = 0; i < DIM; i++)

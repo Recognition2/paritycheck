@@ -199,6 +199,12 @@ int dec (bool *data, bool *parity) {
 
     // Free everything, we're not in the Roman empire anymore
     FREE:
+
+    for (int i = 0; i < MSIZE; i++) {
+        free(matrix[i]);
+    }
+    free(matrix);
+
     for (int i = 0; i < DIM; i++) {
         free(cpar[i]);
         free(rpar[i]);
