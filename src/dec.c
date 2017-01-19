@@ -18,13 +18,11 @@ int dec (bool *data, bool *parity) {
      * First, we need to establish what type of error has occurred.
      * Then, correction needs to take place.
      */
-    const int TOTAL_ERROR = 10000;
 //    const int dsize = MSIZE*MSIZE;              // Data block size
     const int psize = 6*MSIZE + 2;              // Parity size
 //    const int bsize = dsize + psize;            // Total block size
 
     bool *enc_computed = enc(data);             // The parity code that is computed, dwz should be.
-    int nonConformDim;  // Amount of non-conforming dimension
 
     // Memory allocation
     bool **matrix = calloc(MSIZE, sizeof(*matrix));    // Data matrix
@@ -35,25 +33,23 @@ int dec (bool *data, bool *parity) {
     // Note: These arrays are "jagged arrays"
     bool **cpar = calloc(DIM, sizeof(*cpar));      // All parity bits
     bool **rpar = calloc(DIM, sizeof(*rpar));      // All parity bits
-    for (int i = 0; i < 2; i++) {
-        cpar[i] = calloc(MSIZE + 1, sizeof(cpar[i]));    // Horz & vert direction
-        cpar[i + 2] = calloc(MSIZE * 2 - 1, sizeof(cpar[i]));    // Diag & anti-diag direction
-        rpar[i] = calloc(MSIZE + 1, sizeof(rpar[i]));    // Horz & vert direction
-        rpar[i + 2] = calloc(MSIZE * 2 - 1, sizeof(rpar[i]));    // Diag & anti-diag direction
+    for (int i = 0; i < 4; i++) {
+        size_t size = (i < 2) ? MSIZE+1 : 2*MSIZE;
+        cpar[i] = calloc(size, sizeof(bool));
+        rpar[i] = calloc(size, sizeof(bool));
     }
 
     int howfar = 0;
 
     // Fill in both parity blocks, to be compared later on.
     for (int i = 0; i < DIM; i++) {
-        for (int j = 0; j < ((i < 2) ? MSIZE : 2 * MSIZE - 2); j++) {
+        for (int j = 0; j < ((i < 2) ? MSIZE+1 : 2*MSIZE); j++) {
             cpar[i][j] = enc_computed[howfar];
-            rpar[i][j] = parity[howfar];
-            howfar++;
-            if (howfar > psize)
-                fprintf(stderr,"NO NO NO NO NO");
-
+            rpar[i][j] = parity[howfar++];
         }
+    }
+    if (howfar > psize) {
+        fprintf(stderr, "Too much data");
     }
 
     // Fill the matrix with data.
@@ -63,139 +59,81 @@ int dec (bool *data, bool *parity) {
             matrix[i][j] = data[howfar++];
 
     // Walk through both matrices, check the amount of differences.
-    // If zero, no error occurred (or SO MANY errors occurred, that's not worth mentioning)
-    // If exactly 1, then 1 parity bit flipped. Everything is fine.
-    // If exactly DIM (+- 1), then 1 data bit flipped. Correct this.
 
-    // nonMatchPerDim stores the amount of differences in every dimension. Totaldiff is the sum of all parity bits.
-    int *nonMatchPerDim = calloc(DIM, sizeof(*nonMatchPerDim));
     int totaldiff = 0;      // Total difference in all dimensions
-    int wrongdim = -1;       // Which dimension is the off-by-one one?
-    int whichEl[4];    // In all dimensions, the how-many'th of the parity bits is flipped?
-    int dims[] = {0,0};     // Two "good" dimensions.
-    int x;    // x,y position of the wrong bits
+
+    for (int i = 0; i < DIM; i++)
+        for (int j = 0; j < ((i < 2) ? MSIZE : 2 * MSIZE - 1); j++)
+            // This loop does explicitly NOT include the parity-of-parity bits.
+            totaldiff += (cpar[i][j] != rpar[i][j]);
 
     int result;
-    // Determine which one
-    for (int i = 0; i < DIM; i++) {
-        for (int j = 0; j < ((i < 2) ? MSIZE : 2 * MSIZE - 2); j++) {
-            // This loop does explicitly NOT include the parity-of-parity bits.
-            bool isDiff = (cpar[i][j] != rpar[i][j]);      // Is there a difference in the parity bits?
-            nonMatchPerDim[i] += isDiff;                    // The parity of parities is excluded
-            totaldiff += isDiff;
-            if (isDiff) {
-                whichEl[i] = j;
-            }
+    switch (totaldiff) {
+    case 0:
+    case 1:
+    case 2:
+            /*
+             * Zero errors occurred, everything is splendid
+             * OR: One error occurred, the parity bit itself is in error and correction is not necessary.
+             * OR: Two parity bits flipped. Still no cause for concern.
+             * This really is the best case scenario. It's easy and simple and great
+             */
+        break;
+
+    case 3:
+    case 5:
+        /*
+         * Three/five parity bits have flipped.
+         * This can only be caused by 1 data bit flipped, and (if 3) one of the parities involved has also flipped.
+         * if 5 (much more likely), one extra parity bit has flipped.
+         * First, figure out in which dimension the "extra" parity has flipped, and correct it.
+         */
+        correctExtraParity(totaldiff, cpar, rpar);
+
+        // NO BREAK STATEMENT, use case fallthrough.
+    case 4:
+        /*
+         * One error has occurred. No parities have flipped
+         */
+        result = correctOne(matrix, cpar, rpar);
+        if (result != 0) {
+            fprintf(stderr, "Could not correct 1 data error, result=%d", result);
+            totaldiff = result;
+            goto FREE;
+        }
+        break;
+
+    case 8:
+        /*
+         * Two errors have occurred. Thankfully, no parity bits have flipped.
+         * Furthermore, these errors have occurred in distinct parts of the matrix, dwz
+         * no double parities flipped.
+         */
+        result = correctTwoSeparate(matrix, cpar, rpar);
+        if (result != 0) {
+            fprintf(stderr, "Could not correct 2 data errors, result = %d\n", result);
+            totaldiff = result;
+            goto FREE;
+        }
+        break;
+
+    default:
+        fprintf(stderr, "Case not handled by any of the other correctors. %d parity bits were different.\n", totaldiff);
+        totaldiff = 10001;
+        goto FREE;
+    }
+
+    // Serialize array back to raw data.
+    howfar = 0;
+    for (int i = 0; i < MSIZE; i++) {
+        for (int j = 0; j < MSIZE; j++) {
+            data[howfar++] = matrix[i][j];
         }
     }
-    switch (totaldiff) {
-        case 0:
-        case 1:
-        case 2:
-                /*
-                 * Zero errors occurred, everything is splendid
-                 * OR: One error occurred, the parity bit itself is in error and correction is not necessary.
-                 * OR: Two parity bits flipped. Still no cause for concern.
-                 * This really is the best case scenario. It's easy and simple and great
-                 */
-            break;
-
-        case 3:
-        case 5:
-            /*
-             * One data error has occurred. One parity bit flipped back, or an extra one flipped.
-             *
-             * First, make sure that in all dimensions (except 1) exactly 1 error has occurred.
-             */
-            nonConformDim = 0;    // Has only one error has occurred in all dimension? Let's check
-            for (int i = 0; i < DIM; i++)
-                if (nonMatchPerDim[i] != 1)
-                    nonConformDim++;
-
-            if (nonConformDim > 1) {
-                totaldiff = TOTAL_ERROR;
-                goto FREE;
-            }
-            for (int i = 0; i < DIM; i++)
-                if (nonMatchPerDim[i] != 1)
-                    wrongdim = i;
-            dims[0] = (wrongdim + 1) % 4;
-            dims[1] = (wrongdim + 2) % 4;
-            // NO BREAK, use "case fallthrough" since both cases are roughly equal, the 3/5 one just needs more love
-        case 4:
-            /*
-             * Now, we can assume it's a 'nice' error that we're dealing with. Correction is straightforward:
-             * Exclude the "wrong" dimension, if there is one, and use two others for positioning.
-             * Check with the third available dimension. If there is no wrong dimension, also check the fourth dim.
-             */
-            for (int i = 0; i < DIM; i++) {
-                int tmp = ((i < 2) ? MSIZE : 2 * MSIZE - 2);
-                if (cpar[i][tmp] != rpar[i][tmp] || nonMatchPerDim[i] != 1) { // Check  final parity bits
-                    totaldiff = TOTAL_ERROR;                             // & amount of errors in normal parity bits
-                    goto FREE;
-                }
-            }
-            // Start with dimensions 0 and 1, horz & vert. Because it's easy.
-            if (dims[0] == dims[1]) { // Switch case is 4.
-                dims[0] = 0;
-                dims[1] = 1;
-            } else {
-                // "Good" dimensions are not to be chosen freely. Unfortunately.
-                switch (wrongdim) {
-                    case 0: // Fuck! i & j need to be reverse engineered.
-                        x = whichEl[2] - whichEl[1];
-                        if (x == whichEl[0] || x < 0) // Something strange is going on, impossible
-                            fprintf(stderr,"This should never happen, x = %d", x);
-                        else
-                            whichEl[0] = x;
-                        break;
-
-                    case 1:
-                        x = whichEl[2] - whichEl[0]; // Actually y =
-                        if (x == whichEl[1] || x < 0) // Something strange is going on, impossible
-                            fprintf(stderr,"This should never happen, y = %d", x);
-                        else
-                            whichEl[1] = x;
-                        break;
-                    default: break;
-                }
-            }
-            // In these dimensions, i & j are given directly, and don't need to be converted to other dimensions.
-            // If all is well, whichEl contains the values in all dimensions.
-            // First check if all things correspond to the same bit
-            // Diagonal:
-            bool isdiagCorrect = whichEl[0] + whichEl[1] == whichEl[2];
-            bool iscrossCorrect = (MSIZE - 1 - whichEl[0] + whichEl[1]) == whichEl[3];
-            if (!((isdiagCorrect && iscrossCorrect) || ( wrongdim == 2 && iscrossCorrect) || (isdiagCorrect && wrongdim == 3))) {
-                /*
-                 * In principle, both diagonal and cross-diag should be correct.
-                 * An exception is made if that dimension is the wrong dimension. In this case, only the other
-                 * dimension has to be correct. If this is not the case, clearly a fatal error has occurred.
-                 */
-                totaldiff = TOTAL_ERROR;
-                goto FREE;
-            }
-            matrix[whichEl[0]][whichEl[1]] = !matrix[whichEl[0]][whichEl[1]]; // Actual flipping
-            break;
-
-
-        case 8:
-            /*
-             * Two errors have occurred. Thankfully, no parity bits have flipped.
-             * Furthermore, these errors have occurred in distinct parts of the matrix, dwz
-             * no double parities flipped.
-             */
-            result = correctTwo(&matrix, &cpar, &rpar);
-            if (result != 0) {
-                fprintf(stderr, "Could not correct 2 data errors, result = %d", result);
-                exit(EXIT_FAILURE);
-            }
-
-        default:
-            totaldiff = TOTAL_ERROR;
-            goto FREE;
+    if (howfar > psize) {
+        // BOOM
+        fprintf(stderr, "MONKEY GONE BANANAS");
     }
-
 
     // Free everything, we're not in the Roman empire anymore
     FREE:
@@ -212,15 +150,124 @@ int dec (bool *data, bool *parity) {
     free(cpar);
     free(rpar);
     free(enc_computed);
-    free(nonMatchPerDim);
     return totaldiff;
 }
 
-int correctTwo(bool ***m, bool ***cpar, bool ***rpar) {
+int correctExtraParity (int totaldiff, bool **cpar, bool **rpar) {
+    printf(">>>Correct extra parity bit\n");
+    int wrongDim = -1; // What dimension is the dimension in which the other flip happened?
+    int countWrongDim=0;
+    for (int i = 0; i < DIM; i++) {
+        int tmp = (i < 2) ? MSIZE : 2*MSIZE - 1;
+        if (cpar[i][tmp] == rpar[i][tmp]) {// A double or zero flip has occurred
+            wrongDim = i;
+            countWrongDim++;
+        }
+    }
+
+    if (countWrongDim != 1) // Double or zero flip has occurred in more than 1 dimension
+        return 1;
+
+    int whichEl[DIM];
+    for (int i = 0; i < DIM; i++) {
+        for (int j = 0; j < ((i < 2) ? MSIZE - 1 : 2 * MSIZE - 2); j++) {
+            if (cpar[i][j] != rpar[i][j]) {
+                whichEl[i] = j;
+            }
+        }
+    }
+
+    int el;
+    switch (wrongDim) {
+        case 0: // X direction is wrong
+            el = whichEl[2] - whichEl[1];
+            break;
+        case 1: // Y direction is wrong
+            el = whichEl[2] - whichEl[1];
+            break;
+        case 2: // Diagonal is wrong
+            el = whichEl[0] + whichEl[1];
+            break;
+        case 3: // Cross diagonal
+            el = MSIZE - 1 - whichEl[0] + whichEl[1];
+            break;
+        default:
+            return 2;
+    }
+
+    // The correct element, the one that had to be flipped in the first place, has been found.
+    // Correction must now be done.
+    // If totaldiff is 3, then we need to flip the [el] bit in dimension [wrongDim]
+    // If totaldiff = 5, we need to find the other bit and flip that.
+    if (totaldiff == 3) {
+        rpar[wrongDim][el] ^= 1;
+    } else if (totaldiff == 5) {
+        for (int j = 0; j < ((wrongDim < 2) ? MSIZE : 2 * MSIZE - 1); j++) {
+            if ((cpar[wrongDim][j] != rpar[wrongDim][j]) && (j != el)) {
+                rpar[wrongDim][j] ^= 1;
+            }
+        }
+    } else {
+        return 3;
+    }
+
+    return 0;
+}
+
+int correctOne(bool **m, bool **cpar, bool **rpar) {
+    // Print the function we're in
+    printf(">>>Correct 1 data flip:\n");
+    // Assumption is made that it is a "nice" error, dwz only 1 data bit has flipped, nothing else.
+    int result = 0;
+
+    // First, assert that all parity-of-parities are flipped also, otherwise two errors have occurred.
+    for (int i = 0; i < DIM; i++) {
+        int tmp = ((i < 2) ? MSIZE : 2 * MSIZE-1);
+        if (cpar[i][tmp] == rpar[i][tmp]) { // Check final parity bits
+            fprintf(stderr, "Parity-of-parities in dimension %d has not flipped\n", i+1);
+            return 100+i;
+        }
+    }
+
+    // Now, allocate memory
+    int *whichEl = calloc(DIM, sizeof(int));
+
+    for (int i = 0; i < DIM; i++) {
+        for (int j = 0; j < ((i < 2) ? MSIZE : 2 * MSIZE - 1); j++) {
+            if (cpar[i][j] != rpar[i][j]) {     // Is there a difference in the parity bits?
+                whichEl[i] = j;
+            }
+        }
+    }
+
+    if (whichEl[0] + whichEl[1] != whichEl[2]) {
+        fprintf(stderr,"Diagonal check is wrong, at least 3 data bits have flipped.\n");
+        result = 200;
+        goto FREE;
+    }
+    if ((MSIZE - 1 - whichEl[0] + whichEl[1]) != whichEl[3]) {
+        fprintf(stderr,"Cross diagonal check is wrong, at least 3 data bits have flipped.\n");
+        result = 201;
+        goto FREE;
+    }
+
+    // Everything is correct, flip the bit.
+    m[whichEl[0]][whichEl[1]] ^= 1;
+
+    FREE:           // something something slave-joke
+    free(whichEl);
+
+    return result;
+}
+
+int correctTwoSeparate(bool **m, bool **cpar, bool **rpar) {
     // Allocate memory
-    int **whereE = calloc(2, sizeof(*whereE));
-    for (int i = 0; i < 2; i++)
-        whereE[i] = calloc(DIM, sizeof(*whereE[i]));
+    int **whereE = calloc(DIM, sizeof(*whereE));
+    for (int i = 0; i < 4; i++)
+        whereE[i] = calloc(2, sizeof(*whereE[i]));
+    int result = 0;
+
+    printf(">>Correct 2 separate data flips:\n");
 
     for (int i = 0; i < DIM; i++) {
         int k = 0; // How much'th bit
@@ -229,8 +276,10 @@ int correctTwo(bool ***m, bool ***cpar, bool ***rpar) {
                 whereE[i][k++] = j;
             }
         }
-        if (k > 2) {// This should not be possble, because only 2 errors per dimension. If everything is correct.
-            return 2;
+        if (k != 2) {// This should not be possble, because only 2 errors per dimension. If everything is correct.
+            fprintf(stderr,"GEKKE DINGEN\n");
+            result = 2;
+            goto FREE;
         }
     }
     // whereE contains  the location of all flipped parity bits.
@@ -254,8 +303,9 @@ int correctTwo(bool ***m, bool ***cpar, bool ***rpar) {
             swap(&whereE[3][0], &whereE[3][1]);
         } else if (MSIZE - 1 - whereE[0][0] + whereE[1][0] != whereE[3][0]) { // Scenario non-conform.
             // Something fucked up tremendously, fourth one is STILL incorrect
-            fprintf(stderr, "Something went horribly wrong");
-            return(10000);
+            fprintf(stderr, "Something went horribly wrong\n");
+            result = 3;
+            goto FREE;
         }
     } else if (whereE[0][0] + whereE[1][0] == whereE[2][1]) { // Third one is incorrect (0 0 1 X)
         swap(&whereE[2][0], &whereE[2][1]);
@@ -264,27 +314,37 @@ int correctTwo(bool ***m, bool ***cpar, bool ***rpar) {
         if (MSIZE - 1 - whereE[0][0] + whereE[1][0] == whereE[3][1]) // Scenario (0 0 0 1)
             swap(&whereE[4][0], &whereE[4][1]);
         else if (MSIZE - 1 - whereE[0][0] + whereE[1][0] != whereE[3][0]) { // Scenario: (0 0 0 NON-CONFORM)
-            fprintf(stderr, "Something went horribly wrong");
-            return(10000);
+            fprintf(stderr, "Something went horribly wrong\n");
+            result = 4;
+            goto FREE;
         }
     } else {
         // Completely broken
-        fprintf(stderr, "Something went horribly wrong");
-        return(9999);
+        fprintf(stderr, "Something went horribly wrong\n");
+        result = 5;
+        goto FREE;
     }
 
     // Final assertion:
     for (int i = 0; i < 2; i++) {
         bool isDiagCorrect = (whereE[0][i] + whereE[1][i] == whereE[2][i]);
         bool isCrossCorrect = (MSIZE - 1 - whereE[0][i] + whereE[1][i] == whereE[3][i]);
-        if (!(isDiagCorrect && isCrossCorrect))
-            return 4; // Clearly the 'fixing' went wrong.
+        if (!(isDiagCorrect && isCrossCorrect)) {
+            result = 6; // Clearly the 'fixing' went wrong.
+            goto FREE;
+        }
     }
 
     for (int i = 0; i < 2; i++) { // The actual flipping.
-        *m[whereE[0][i]][whereE[1][i]] = !*m[whereE[0][i]][whereE[1][i]];
+        m[whereE[0][i]][whereE[1][i]] ^= 1;
     }
-    return 0;
+
+    FREE:
+    for (int i = 0; i < DIM; i++) {
+        free(whereE[i]);
+    }
+    free(whereE);
+    return result;
 }
 
 void swap (int *a, int *b) {

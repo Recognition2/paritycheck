@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
 	}
 
     // Check number of arguments
-    if (argc < 1) {
+    if (argc < 2) {
         printhelp(argv[0]);
         return 1;
     }
@@ -49,15 +49,17 @@ int main(int argc, char *argv[]) {
     }
 
     // Encode n blocks
-    int n = 7500;
-    bool **raw = calloc((size_t) n, sizeof(*raw)); // Allocate storage for all raw data bits
-    bool **encoded = calloc((size_t) n, sizeof(*encoded));
+    int n = 1;
+    bool **raw = calloc((size_t) n, sizeof(bool*)); // Allocate storage for all raw data bits
+    bool **encoded = calloc((size_t) n, sizeof(bool*));
 
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &zero);
 
     for (int i = 0; i < n; i++) { // Reading must happen between fopen and fclose calls
         raw[i] = readHexFromFile(fp, dsize);
     }
+
+    fclose(fp); // Reading complete
 
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &readDone);
 
@@ -69,24 +71,26 @@ int main(int argc, char *argv[]) {
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &encDone);
 
     // The encoded data contains ONLY the parity bits.
-    printf("\n");
     // Now do strange things with the data, like ABSOLUTELY DESTROYING IT
+    printf(">Correct data:\t\t");
+    writeHexToSTDOUT(raw[0], dsize);
 
-    for (int i = 0; i < n; i++) {
+    raw[0][9] ^= 1;
+    raw[0][15] ^= 1;
+
+    for (int i = 0; i < n; i++)
         dec(raw[i], encoded[i]);
-    }
 
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &decDone);
 
-    writeHexToSTDOUT(raw[2], dsize);
-    writeHexToSTDOUT(encoded[2], psize);
+    printf(">Comparison data:\t");
+    writeHexToSTDOUT(raw[0], dsize);
+    writeHexToSTDOUT(encoded[0], psize);
 
     // Print timings;
-    printf("Reading took %Le seconds\n", convertTime(readDone, zero));
-    printf("Encoding took %Le seconds\n", convertTime(encDone, readDone));
-    printf("Decoding took %Le seconds\n", convertTime(decDone, encDone));
-
-    fclose(fp); // Reading complete
+    printf(">Reading took %Le seconds\n", convertTime(readDone, zero));
+    printf(">Encoding took %Le seconds\n", convertTime(encDone, readDone));
+    printf(">Decoding took %Le seconds\n", convertTime(decDone, encDone));
 
     for (int i = 0; i < n; i++) {
         free(raw[i]);
@@ -139,7 +143,7 @@ void writeHexToSTDOUT (bool *data, int amount) {
         short value = 0;
         bool *tmp = data + i * bitfactor * sizeof(*tmp);
         for (int j = 0; j < bitfactor; j++) {
-            if (i*bitfactor > amount) {
+            if (i*bitfactor+j >= amount) {
                 flag = false;
                 break;
             }
@@ -155,8 +159,9 @@ void writeHexToSTDOUT (bool *data, int amount) {
         printf("%c", enchex[i]);
     }
     printf("\n");
+
     // Characters have been printed
-    free(enchex);
+        free(enchex);
     return;
 }
 
@@ -166,8 +171,7 @@ long double convertTime(struct timespec a, struct timespec b) {
 
 void printhelp(char *filename) {    // Help function
     printf("This program simulates a four dimensional parity check on data. It can both encode and decode data.\n"
-                   "Encoding can be done by calling '%s enc <data>', dec similarly.\n"
-                   "The data is (not yet) written to <filename>.enc in case of encode, or <filename>.dec in case of decoding.\n"
-                   "Furthermore, it was fun to make this program.", filename);
+                   "Encoding can be done by calling '%s <data>file', dec similarly.\n"
+                   "The data is written to stdout.\n", filename);
     return;
 }

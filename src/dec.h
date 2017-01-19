@@ -7,7 +7,9 @@
 
 #include "globals.h"
 int dec(bool *data, bool *parity);
-int correctTwo(bool ***, bool ***, bool ***);
+int correctExtraParity(int totaldiff, bool **cpar, bool **rpar);
+int correctOne(bool **m, bool **cpar, bool **rpar);
+int correctTwoSeparate(bool **m, bool **cpar, bool **rpar);
 void swap (int *a, int *b);
 
 #endif //FOURDIMPARITY_DEC_H

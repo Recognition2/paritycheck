@@ -21,9 +21,9 @@ bool *enc (bool *data) {
 
     // Note: This array is a "jagged array"
     bool **parity = calloc(DIM, sizeof(*parity));      // All parity bits
-    for (int i = 0; i < 2; i++) {
-        parity[i] = calloc(MSIZE + 1, sizeof(*parity[i]));    // Horz & vert direction
-        parity[i + 2] = calloc(MSIZE * 2, sizeof(*parity[i+2]));    // Diag & anti-diag direction
+    for (int i = 0; i < 4; i++) {
+        size_t size = (i < 2) ? MSIZE+1 : 2*MSIZE;
+        parity[i] = calloc(size, sizeof(*parity[i]));
     }
 
 	// Fill the matrix with data.
@@ -67,20 +67,20 @@ bool *enc (bool *data) {
     }
 
     // Printing stuff because I'm just straight up incompetent, and can't write code that works
-    printf("Printing all parity bits:\n");
-    for (int i = 0; i < DIM; i++) {
-        for (int j = 0; j < ((i < 2) ? MSIZE+1 : 2*MSIZE); j++) {
-            printf("%d", parity[i][j]);
-        }
-        printf("\n");
-    }
-    printf("\n");
+//    printf("Printing all parity bits:\n");
+//    for (int i = 0; i < DIM; i++) {
+//        for (int j = 0; j < ((i < 2) ? MSIZE+1 : 2*MSIZE); j++) {
+//            printf("%d", parity[i][j]);
+//        }
+//        printf("\n");
+//    }
+//    printf("\n");
 
     // Encode parity data into one long bitstream
     bool *encoded = calloc(psize, sizeof(*encoded));
     howfar = 0;
     for (int i = 0; i < 4; i++) {
-        int max = ((i < 2) ? MSIZE + 1 : 2 * MSIZE);
+        int max = ((i < 2) ? MSIZE+1 : 2*MSIZE);
         for (int j = 0; j < max; j++) {
             encoded[howfar++] = parity[i][j];
         }
