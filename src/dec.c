@@ -18,7 +18,7 @@ int dec (bool *data, bool *parity) {
      * First, we need to establish what type of error has occurred.
      * Then, correction needs to take place.
      */
-//    const int dsize = MSIZE*MSIZE;              // Data block size
+    const int dsize = MSIZE*MSIZE;              // Data block size
     const int psize = 6*MSIZE + 2;              // Parity size
 //    const int bsize = dsize + psize;            // Total block size
 
@@ -103,6 +103,10 @@ int dec (bool *data, bool *parity) {
         }
         break;
 
+    case 6:
+        printf("AAAAAAAAAAAAAAAAAAH\n");
+        break;
+
     case 8:
         /*
          * Two errors have occurred. Thankfully, no parity bits have flipped.
@@ -130,9 +134,9 @@ int dec (bool *data, bool *parity) {
             data[howfar++] = matrix[i][j];
         }
     }
-    if (howfar > psize) {
+    if (howfar > dsize) {
         // BOOM
-        fprintf(stderr, "MONKEY GONE BANANAS");
+        fprintf(stderr, "MONKEY GONE BANANAS, howfar=%d,psize=%d\n", howfar, psize);
     }
 
     // Free everything, we're not in the Roman empire anymore
@@ -271,10 +275,12 @@ int correctTwoSeparate(bool **m, bool **cpar, bool **rpar) {
 
     for (int i = 0; i < DIM; i++) {
         int k = 0; // How much'th bit
-        for (int j = 0; j < ((i < 2) ? MSIZE : 2 * MSIZE - 2); j++) {
+        for (int j = 0; j < ((i < 2) ? MSIZE : 2 * MSIZE - 1); j++) {
             if (cpar[i][j] != rpar[i][j]) {
                 whereE[i][k++] = j;
+                printf("%d", whereE[i][k-1]);
             }
+            printf("\n");
         }
         if (k != 2) {// This should not be possble, because only 2 errors per dimension. If everything is correct.
             fprintf(stderr,"GEKKE DINGEN\n");
@@ -284,7 +290,7 @@ int correctTwoSeparate(bool **m, bool **cpar, bool **rpar) {
     }
     // whereE contains  the location of all flipped parity bits.
     // There are 16 possible scenario's, of which 8 are relevant. Those 8 flipped parity bits correspond to
-    // 2 flipped data bits, which means that 4 pariti   es belong to 1 data bit. The trick is figuring out which.
+    // 2 flipped data bits, which means that 4 parities belong to 1 data bit. The trick is figuring out which.
     // The ordering is done by assuming the first one is correct (whereE[0][0]), and figuring the rest out.
     // Because this assumption can be safely made, only half the possible scenario's are relevant.
     // Because we don't care which data bit is "first", only that all parity bits belong to the correct data bit.
