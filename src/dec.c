@@ -351,11 +351,13 @@ int correctTwoTogether(bool **m, bool **cpar, bool **rpar) {
 
     for (int i = 0; i < 2; i++) {
         if (whereE[0][i] + whereE[1][i] != whereE[2][i] || whereE[3][i] != whereE[1][i] + MSIZE-1 - whereE[0][i]) {
-            fprintf(stderr, "Correction impossible\n");
-            goto FREE;
-        }
-
-        m[whereE[0][i]][whereE[1][i]] ^= 1;
+            fprintf(stderr, "Correction impossible: ");
+            for (int j = 0; j < DIM; j++) {
+                fprintf(stderr, "%d", whereE[j][i]);
+            }
+            fprintf(stderr, "\n");
+        } else
+            m[whereE[0][i]][whereE[1][i]] ^= 1;
     }
 
 
