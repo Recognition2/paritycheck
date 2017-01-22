@@ -24,8 +24,6 @@ int main(int argc, char *argv[]) {
     const int psize = 6*MSIZE - 2;            // Parity size
 //    const int bsize = dsize + psize;          // Total block size
 
-
-    setbuf(stdout, NULL); // GO AWAY, STUPID BUFFER
     // Initialize timers
     struct timespec zero, readDone, encDone, decDone;
 
@@ -51,7 +49,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Encode n blocks
-    int n = 1;
+    int n = 1000;
     bool **raw = calloc((size_t) n, sizeof(bool*)); // Allocate storage for all raw data bits
     bool **encoded = calloc((size_t) n, sizeof(bool*));
 
@@ -85,7 +83,7 @@ int main(int argc, char *argv[]) {
     //////////////////// DESTRUCTION ///////////////////////////////
     for (int i = 0; i < n; i++) {
         raw[i][(i+4)%dsize] ^= 1;
-//        raw[i][(i+8)%dsize] ^= 1;
+        raw[i][(i+i+2)%dsize] ^= 1;
     }
 
     for (int i = 0; i < n; i++)
@@ -101,9 +99,7 @@ int main(int argc, char *argv[]) {
                 wrong++;
             }
         }
-        if (wrong == 0) {
-            printf("Great success (%d)!\n", i);
-        } else {
+        if (wrong != 0) {
             printf("!How unfortunate! Correct data: \t");
             writeHexToSTDOUT(old[i], dsize);
             printf("!Wrongly corrected to:\t");
@@ -142,7 +138,7 @@ bool *readHexFromFile (FILE *fp, int amount) {
         } else if (t >= 97 && t <= 102) { // Character is a-f in hexadecimal
             t -= (97-10);
         } else if (feof(fp) != 0) { // EOF has occurred
-            fprintf(stderr,"End of file was reached before all necessary characters could be read out.");
+            fprintf(stderr,"End of file was reached before all necessary characters could be read out (%d/%d).", t, amount/bitfactor);
             exit(EXIT_FAILURE);
         }
 

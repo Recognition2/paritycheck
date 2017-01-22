@@ -9,6 +9,7 @@
 #include "dec.h"
 #include "enc.h"
 
+
 int dec (bool *data, bool *parity) {
     /*
      * Received data consists of both parity bits and data.
@@ -21,6 +22,8 @@ int dec (bool *data, bool *parity) {
     const int psize = 6*MSIZE - 2;              // Parity size
 //    const int bsize = dsize + psize;            // Total block size
 
+
+    // EXPENSIVE OPERATION:
     bool *enc_computed = enc(data);             // The parity code that is computed, dwz should be.
 
     // Memory allocation
@@ -78,7 +81,7 @@ int dec (bool *data, bool *parity) {
              */
         for (int i = 0; i < DIM; i++)
             for (int j = 0; j < ((i < 2) ? MSIZE : 2 * MSIZE - 1); j++)
-                if (cpar[i][j] != rpar[i][j])
+                if (unlikely(cpar[i][j] != rpar[i][j]))
                     rpar[i][j] = cpar[i][j];
         break;
 
@@ -220,20 +223,9 @@ int correctExtraParity (int totaldiff, bool **cpar, bool **rpar) {
 
 int correctOne(bool **m, bool **cpar, bool **rpar) {
     // Print the function we're in
-    printf(">>>Correct 1 data flip:\n");
+//    printf(">>>Correct 1 data flip:\n");
     // Assumption is made that it is a "nice" error, dwz only 1 data bit has flipped, nothing else.
     int result = 0;
-
-    // First, assert that all parity-of-parities are flipped also, otherwise two errors have occurred.
-    // Except if that parity-of-parities is the one that flipped...
-    for (int i = 0; i < DIM; i++) {
-        int count = 0;
-        int tmp = ((i < 2) ? MSIZE : 2 * MSIZE-1);
-        if (cpar[i][tmp] == rpar[i][tmp] && count > 1) { // Check final parity bits
-            fprintf(stderr, "Parity-of-parities in dimension %d has not flipped\n", i+1);
-            return 100+i;
-        }
-    }
 
     // Now, allocate memory
     int *whichEl = calloc(DIM, sizeof(int));
@@ -274,11 +266,11 @@ int correctTwoTogether(bool **m, bool **cpar, bool **rpar) {
     int result = 0;
     int specialDim = -1;
 
-    printf(">>>Correct two connected data flips\n");
+//    printf(">>>Correct two connected data flips\n");
 
     for (int i = 0; i < DIM; i++) {
         int isDiff = 0;
-        for (int j = 0; j < ((i < 2) ? MSIZE : 2 * MSIZE - 1); j++) {
+        for (int j = 0; j < ((i < 2) ? MSIZE : 2*MSIZE-1); j++) {
             if (cpar[i][j] != rpar[i][j]) {
                 whereE[i][isDiff++] = j;
             }
@@ -292,149 +284,79 @@ int correctTwoTogether(bool **m, bool **cpar, bool **rpar) {
         }
     }
 
-    for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < DIM; j++) {
-            printf("%d", whereE[j][i]);
-        }
-        printf("\n");
-    }
-    printf("%d", specialDim == m[0][0]);
-
-    /*
-    switch (specialDim) { // This is similar to correctTwoSeperate, just with an U for "Zero in this dimension"
+    switch (specialDim) {
     case 0:
-        if (MSIZE-1 - whereE[2][0] + 2*whereE[1][0] != whereE[3][0] && MSIZE-1 - whereE[2][0] + 2*whereE[1][0] != whereE[3][1])
-            swap(&whereE[2][0], &whereE[2][1]);             // Scenario: (U 0 1 X)
-        if (MSIZE-1 - whereE[2][0] + 2*whereE[1][0] == whereE[3][1])
-            swap(&whereE[3][0], &whereE[3][1]);             // Scenario: (U 0 0 1)
+        if (whereE[2][0] - whereE[1][0] != whereE[2][1] - whereE[1][1])     // Scenario: (U 0 1 X)
+            swap(&whereE[2][0], &whereE[2][1]);
+        if (MSIZE-1 - whereE[2][0] + 2*whereE[1][0] != whereE[3][0])        // Scenario: (U 0 0 1)
+            swap(&whereE[3][0], &whereE[3][1]);
 
         for (int i = 0; i < 2; i++)
             whereE[0][i] = whereE[2][i] - whereE[1][i];
         break;
 
     case 1:
-        if (whereE[3][0] + 2*whereE[0][0] - (MSIZE-1) != whereE[2][0] && whereE[3][0] + 2*whereE[0][0] - (MSIZE-1) != whereE[2][1])
-            swap(&whereE[2][0], &whereE[2][1]);             // Scenario: (0 U 1 X)
-        if (whereE[3][0] + 2*whereE[0][0] - (MSIZE-1) == whereE[2][1])
-            swap(&whereE[3][0], &whereE[3][1]);  // Scenario: (0 U 0 1)
+        if (whereE[2][0] - whereE[0][0] != whereE[2][1] - whereE[0][1])     // Scenario: (0 U 1 X)
+            swap(&whereE[2][0], &whereE[2][1]);
+        if (whereE[2][0] != whereE[3][0] + 2*whereE[0][0] - (MSIZE-1))      // Scenario: (0 U 0 1)
+            swap(&whereE[3][0], &whereE[3][1]);
 
         for (int i = 0; i < 2; i++)
             whereE[1][i] = whereE[2][i] - whereE[0][i];
         break;
 
     case 2:
-        if (MSIZE - 1 - whereE[0][0] + whereE[1][0] != whereE[3][0] && MSIZE - 1 - whereE[0][0] + whereE[1][0] != whereE[3][1])
-            swap(&whereE[1][0], &whereE[1][1]);             // Scenario: (0 1 U X)
-        if (MSIZE - 1 - whereE[0][0] + whereE[1][0] == whereE[3][1])
-            swap(&whereE[3][0], &whereE[3][1]);             // Scenario: (0 0 U 1)
+        if (whereE[0][0] + whereE[1][0] != whereE[0][1] + whereE[1][1])     // Scenario: (0 1 U X)
+            swap(&whereE[1][0], &whereE[1][1]);
+        if (MSIZE-1 - whereE[0][0] + whereE[1][0] != whereE[3][0])          // Scenario: (0 0 U 1)
+            swap(&whereE[3][0], &whereE[3][1]);
 
         for (int i = 0; i < 2; i++)
             whereE[2][i] = whereE[0][i] + whereE[1][i];
-
         break;
 
     case 3:
-        if (whereE[0][0] + whereE[1][0] != whereE[2][0] && whereE[0][0] + whereE[1][0] != whereE[2][1])
-            swap(&whereE[1][0], &whereE[1][1]);             // Scenario: (0 1 X U)
-        if (whereE[0][0] + whereE[1][0] == whereE[2][1])
-            swap(&whereE[2][0], &whereE[2][1]);             // Scenario: (0 0 1 U)
+        if (whereE[1][0] - whereE[0][0] != whereE[1][1] - whereE[0][1])     // Scenario: (0 1 X U)
+            swap(&whereE[1][0], &whereE[1][1]);
+        if (whereE[0][0] + whereE[1][0] != whereE[2][0])                    // Scenario: (0 0 1 U)
+            swap(&whereE[2][0], &whereE[2][1]);
 
         for (int i = 0; i < 2; i++)
-            whereE[3][i] = MSIZE - 1 - whereE[0][i] + whereE[1][i];
-
+            whereE[3][i] = MSIZE-1 - whereE[0][i] + whereE[1][i];
         break;
 
     default:
-        fprintf(stderr, "There is no special dimension. Abort\n");
-        goto FREE;
+        fprintf(stderr,"HELP ME PLEASE %d\n", specialDim);
+        break;
     }
 
+    // Final assertion:
     for (int i = 0; i < 2; i++) {
-        if (whereE[0][i] + whereE[1][i] != whereE[2][i] || whereE[3][i] != whereE[1][i] + MSIZE-1 - whereE[0][i]) {
-            fprintf(stderr, "Correction impossible: ");
-            for (int j = 0; j < DIM; j++) {
-                fprintf(stderr, "%d", whereE[j][i]);
-            }
-            fprintf(stderr, "\n");
-        } else
-            m[whereE[0][i]][whereE[1][i]] ^= 1;
-    } */
+        bool isDiagCorrect = (whereE[0][i] + whereE[1][i] == whereE[2][i]);
+        bool isCrossCorrect = (MSIZE - 1 - whereE[0][i] + whereE[1][i] == whereE[3][i]);
+        if (!(isDiagCorrect && isCrossCorrect)) {
+            result = 6; // Clearly the 'fixing' went wrong.
+            goto FREE;
+        }
+        m[whereE[0][i]][whereE[1][i]] ^= 1; // Actual flipping
 
-
-    // If all went right, by now the bits are sorted.
-//    for (int i = 0; i < 2; i++) {
-//        bool err = false;
-//        switch (specialDim) {
-//        case 0:
-//            if (MSIZE-1 - whereE[2][i] + 2*whereE[1][i] != whereE[3][i]) {
-//                err=true;
-//                break;
-//            }
-//
-//            m[(whereE[2][i] - whereE[1][i])][whereE[1][i]] ^= 1;
-//
-//            break;
-//
-//        case 1:
-//            if (whereE[3][i] + 2*whereE[0][i] -(MSIZE-1) != whereE[2][i]) {
-//                err=true;
-//                break;
-//            }
-//
-//            m[whereE[0][i]][(whereE[2][i] - whereE[0][i])] ^= 1;
-//
-//            break;
-//
-//        case 2:
-//            if (MSIZE-1 - whereE[0][i] + whereE[1][i] != whereE[3][i]) {
-//                err = true;
-//                break;
-//            }
-//
-//            m[whereE[0][i]][whereE[1][i]] ^= 1;
-//
-//            break;
-//
-//        case 3:
-//            if (whereE[0][i] + whereE[1][i] != whereE[2][i]) {
-//                err = true;
-//                break;
-//            }
-//
-//            m[whereE[0][i]][whereE[1][i]] ^= 1;
-//
-//            break;
-//
-//        default: break;
-//        }
-//        if (err) {
-//            fprintf(stderr,"Grouping 2 parity bits failed. i = %d, specDim = %d\n", i, specialDim);
-//            for (int k = 0; i < 2; i++) {
-//                for (int l = 0; l < DIM; l++) {
-//                    printf("%d", whereE[l][k]);
-//                }
-//                printf("\n");
-//            }
-//            goto FREE;
-//        }
-//    }
+    }
 
     FREE:
     for (int i = 0; i < DIM; i++)
         free(whereE[i]);
     free(whereE);
-
     return result;
 }
 
 int correctTwoSeparate(bool **m, bool **cpar, bool **rpar) {
     // Allocate memory
     int **whereE = calloc(DIM, sizeof(*whereE));
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < DIM; i++)
         whereE[i] = calloc(2, sizeof(*whereE[i]));
     int result = 0;
 
-    printf(">>Correct 2 separate data flips:\n");
+//    printf(">>Correct 2 separate data flips:\n");
 
     for (int i = 0; i < DIM; i++) {
         int k = 0; // How much'th bit

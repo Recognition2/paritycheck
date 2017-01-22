@@ -4,6 +4,7 @@
 
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "enc.h"
 
@@ -49,7 +50,7 @@ bool *enc (bool *data) {
             parity[2][i+j] ^= matrix[i][j];  // Diagonal
             parity[3][MSIZE - 1 - i + j] ^= matrix[i][j];   // Cross diagonal
             // This last one took approx 3 hours to figure out. Really annoying.
-            }
+        }
     }
 
     // At this point, the data matrix is no longer needed.
@@ -60,7 +61,7 @@ bool *enc (bool *data) {
    // Printing stuff because I'm just straight up incompetent, and can't write code that works
 //    printf("Printing all parity bits:\n");
 //    for (int i = 0; i < DIM; i++) {
-//        for (int j = 0; j < ((i < 2) ? MSIZE+1 : 2*MSIZE); j++) {
+//        for (int j = 0; j < ((i < 2) ? MSIZE : 2*MSIZE-1); j++) {
 //            printf("%d", parity[i][j]);
 //        }
 //        printf("\n");
@@ -71,8 +72,7 @@ bool *enc (bool *data) {
     bool *encoded = calloc(psize, sizeof(*encoded));
     howfar = 0;
     for (int i = 0; i < 4; i++) {
-        int max = ((i < 2) ? MSIZE : 2*MSIZE-1);
-        for (int j = 0; j < max; j++) {
+        for (int j = 0; j < ((i < 2) ? MSIZE : 2*MSIZE-1); j++) {
             encoded[howfar++] = parity[i][j];
         }
     }
@@ -81,7 +81,6 @@ bool *enc (bool *data) {
     for (int i = 0; i < DIM; i++)
         free(parity[i]);
     free(parity);
-
     // The encoded data contains ONLY the parity bits.
     return encoded;
 }

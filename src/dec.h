@@ -11,6 +11,7 @@ int correctExtraParity(int totaldiff, bool **cpar, bool **rpar);
 int correctOne(bool **m, bool **cpar, bool **rpar);
 int correctTwoTogether(bool **m, bool **cpar, bool **rpar);
 int correctTwoSeparate(bool **m, bool **cpar, bool **rpar);
-void swap (int *a, int *b);
+
+void swap(int *a, int *b);
 
 #endif //FOURDIMPARITY_DEC_H
