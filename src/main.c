@@ -24,6 +24,8 @@ int main(int argc, char *argv[]) {
     const int psize = 6*MSIZE + 2;            // Parity size
 //    const int bsize = dsize + psize;          // Total block size
 
+
+    setbuf(stdout, NULL); // GO AWAY, STUPID BUFFER
     // Initialize timers
     struct timespec zero, readDone, encDone, decDone;
 
@@ -34,7 +36,7 @@ int main(int argc, char *argv[]) {
 	}
 
     // Check number of arguments
-    if (argc < 2) {
+    if (argc < 1) {
         printhelp(argv[0]);
         return 1;
     }
@@ -53,10 +55,17 @@ int main(int argc, char *argv[]) {
     bool **raw = calloc((size_t) n, sizeof(bool*)); // Allocate storage for all raw data bits
     bool **encoded = calloc((size_t) n, sizeof(bool*));
 
+    bool **old = calloc((size_t) n, sizeof(bool *));  // Save old binary data here
+    for (int i = 0; i < n; i++)
+        old[i] = calloc(dsize, sizeof(bool));
+
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &zero);
 
     for (int i = 0; i < n; i++) { // Reading must happen between fopen and fclose calls
         raw[i] = readHexFromFile(fp, dsize);
+        for (int j = 0; j < dsize; j++) {
+            old[i][j] = raw[i][j];
+        }
     }
 
     fclose(fp); // Reading complete
@@ -72,19 +81,36 @@ int main(int argc, char *argv[]) {
 
     // The encoded data contains ONLY the parity bits.
     // Now do strange things with the data, like ABSOLUTELY DESTROYING IT
-    printf(">Correct data:\t\t");
-    writeHexToSTDOUT(raw[0], dsize);
 
-    raw[0][9] ^= 1;
-    raw[0][15] ^= 1;
+    //////////////////// DESTRUCTION ///////////////////////////////
+    for (int i = 0; i < n; i++) {
+        raw[i][(i+4)%dsize] ^= 1;
+        raw[i][(i+8)%dsize] ^= 1;
+    }
 
     for (int i = 0; i < n; i++)
         dec(raw[i], encoded[i]);
 
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &decDone);
 
-    printf(">Comparison data:\t");
-    writeHexToSTDOUT(raw[0], dsize);
+    for (int i = 0; i < n; i++) {
+        int wrong = 0;
+        for (int j = 0; j < dsize; j++) {
+            if (old[i][j] != raw[i][j]) {
+                fprintf(stderr, "Data correction went wrong: %d'th attempt, bit %d\n", i, j);
+                wrong++;
+            }
+        }
+        if (wrong == 0) {
+            printf("Great success (%d)!\n", i);
+        } else {
+            printf("!How unfortunate! Correct data: \t");
+            writeHexToSTDOUT(old[i], dsize);
+            printf("!Wrongly corrected to:\t");
+            writeHexToSTDOUT(raw[i], dsize);
+        }
+    }
+
     writeHexToSTDOUT(encoded[0], psize);
 
     // Print timings;
@@ -95,9 +121,11 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < n; i++) {
         free(raw[i]);
         free(encoded[i]);
+        free(old[i]);
     }
     free(raw);
     free(encoded);
+    free(old);
 }
 
 bool *readHexFromFile (FILE *fp, int amount) {

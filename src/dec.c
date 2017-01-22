@@ -34,8 +34,8 @@ int dec (bool *data, bool *parity) {
     bool **rpar = calloc(DIM, sizeof(*rpar));      // All parity bits
     for (int i = 0; i < 4; i++) {
         size_t size = (i < 2) ? MSIZE+1 : 2*MSIZE;
-        cpar[i] = calloc(size, sizeof(bool));
-        rpar[i] = calloc(size, sizeof(bool));
+        cpar[i] = calloc(size, sizeof(bool));   // COMPUTED parity
+        rpar[i] = calloc(size, sizeof(bool));   // RECEIVED parity
     }
 
     int howfar = 0;
@@ -58,25 +58,28 @@ int dec (bool *data, bool *parity) {
             matrix[i][j] = data[howfar++];
 
     // Walk through both matrices, check the amount of differences.
-
     int totaldiff = 0;      // Total difference in all dimensions
-
     for (int i = 0; i < DIM; i++)
         for (int j = 0; j < ((i < 2) ? MSIZE : 2 * MSIZE - 1); j++)
             // This loop does explicitly NOT include the parity-of-parity bits.
             totaldiff += (cpar[i][j] != rpar[i][j]);
 
-    int result;
+    int result = 0;
     switch (totaldiff) {
-    case 0:
+    case 0: break;
+            /* Zero errors occurred, everything is splendid */
+
     case 1:
     case 2:
             /*
-             * Zero errors occurred, everything is splendid
              * OR: One error occurred, the parity bit itself is in error and correction is not necessary.
              * OR: Two parity bits flipped. Still no cause for concern.
              * This really is the best case scenario. It's easy and simple and great
              */
+        for (int i = 0; i < DIM; i++)
+            for (int j = 0; j < ((i < 2) ? MSIZE : 2 * MSIZE - 1); j++)
+                if (cpar[i][j] != rpar[i][j])
+                    rpar[i][j] = cpar[i][j];
         break;
 
     case 3:
@@ -98,11 +101,6 @@ int dec (bool *data, bool *parity) {
          * One error has occurred. No parities have flipped
          */
         result = correctOne(matrix, cpar, rpar);
-        if (result != 0) {
-            fprintf(stderr, "Could not correct 1 data error, result=%d\n", result);
-            totaldiff = result;
-            goto FREE;
-        }
         break;
 
     case 6:
@@ -112,11 +110,6 @@ int dec (bool *data, bool *parity) {
          * So you only have parities in 3 dimensions to figure out what happened.
          */
         result = correctTwoTogether(matrix, cpar, rpar);
-        if (result != 0) {
-            fprintf(stderr, "Could not correct 2 connected data errors, result = %d\n", result);
-            totaldiff = result;
-            goto FREE;
-        }
         break;
 
     case 8:
@@ -126,11 +119,6 @@ int dec (bool *data, bool *parity) {
          * no double parities flipped.
          */
         result = correctTwoSeparate(matrix, cpar, rpar);
-        if (result != 0) {
-            fprintf(stderr, "Could not correct 2 separate data errors, result = %d\n", result);
-            totaldiff = result;
-            goto FREE;
-        }
         break;
 
     default:
@@ -139,13 +127,23 @@ int dec (bool *data, bool *parity) {
         goto FREE;
     }
 
-    // Serialize array back to raw data.
-    howfar = 0;
-    for (int i = 0; i < MSIZE; i++) {
-        for (int j = 0; j < MSIZE; j++) {
-            data[howfar++] = matrix[i][j];
-        }
+    if (result != 0) {
+        fprintf(stderr, "Could not correct %d parity errors, result = %d\n", totaldiff, result);
+        totaldiff = result;
+        goto FREE;
     }
+
+    // Serialize matrix back to raw data.
+    howfar = 0;
+    for (int i = 0; i < MSIZE; i++)
+        for (int j = 0; j < MSIZE; j++)
+            data[howfar++] = matrix[i][j];
+
+    // Serialize rpar back to raw data
+    howfar = 0;
+    for (int i = 0; i < DIM; i++)
+        for (int j = 0; j < ((i < 2) ? MSIZE+1 : 2*MSIZE); j++)
+            parity[howfar++] = rpar[i][j];
 
     // Free everything, we're not in the Roman empire anymore
     FREE:
@@ -301,6 +299,8 @@ int correctTwoTogether(bool **m, bool **cpar, bool **rpar) {
         printf("\n");
     }
 
+
+    /*
     switch (specialDim) { // This is similar to correctTwoSeperate, just with an U for "Zero in this dimension"
     case 0:
         if (MSIZE-1 - whereE[2][0] + 2*whereE[1][0] != whereE[3][0] && MSIZE-1 - whereE[2][0] + 2*whereE[1][0] != whereE[3][1])
@@ -358,7 +358,7 @@ int correctTwoTogether(bool **m, bool **cpar, bool **rpar) {
             fprintf(stderr, "\n");
         } else
             m[whereE[0][i]][whereE[1][i]] ^= 1;
-    }
+    } */
 
 
     // If all went right, by now the bits are sorted.
@@ -426,7 +426,6 @@ int correctTwoTogether(bool **m, bool **cpar, bool **rpar) {
 
     return result;
 }
-
 
 int correctTwoSeparate(bool **m, bool **cpar, bool **rpar) {
     // Allocate memory
