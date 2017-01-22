@@ -1,7 +1,6 @@
 cmake-build-debug/
 .idea/
 testdata.txt
-pdata.txt
 callgrind.out*
 *~
 
