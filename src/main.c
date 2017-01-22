@@ -51,8 +51,8 @@ int main(int argc, char *argv[]) {
 
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
 
-    int i =0;
-    if (strcmp(argv[1], "encode")) {
+    int i =1;
+    if (strcmp(argv[1], "encode") == 0) {
         while (i++) {
             bool *data = readHexFromFile(fp,dsize);
             if (data) {
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
             } else break;
             free(data);
         }
-    } else if (strcmp(argv[1], "decode")) {
+    } else if (strcmp(argv[1], "decode") == 0) {
         FILE *pfp = fopen(argv[3], "r");
         while(i++) {
             bool *data = readHexFromFile(fp, dsize);
@@ -76,8 +76,6 @@ int main(int argc, char *argv[]) {
 
     clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &end);
     printf(">Performing operation took %Le seconds\n", convertTime(start, end));
-
-
 
 //    // Encode n blocks
 //    int n = 10000;
