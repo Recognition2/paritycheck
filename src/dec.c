@@ -18,7 +18,7 @@ int dec (bool *data, bool *parity) {
      * Then, correction needs to take place.
      */
 //    const int dsize = MSIZE*MSIZE;              // Data block size
-    const int psize = 6*MSIZE + 2;              // Parity size
+    const int psize = 6*MSIZE - 2;              // Parity size
 //    const int bsize = dsize + psize;            // Total block size
 
     bool *enc_computed = enc(data);             // The parity code that is computed, dwz should be.
@@ -33,7 +33,7 @@ int dec (bool *data, bool *parity) {
     bool **cpar = calloc(DIM, sizeof(*cpar));      // All parity bits
     bool **rpar = calloc(DIM, sizeof(*rpar));      // All parity bits
     for (int i = 0; i < 4; i++) {
-        size_t size = (i < 2) ? MSIZE+1 : 2*MSIZE;
+        size_t size = (i < 2) ? MSIZE : 2*MSIZE-1;
         cpar[i] = calloc(size, sizeof(bool));   // COMPUTED parity
         rpar[i] = calloc(size, sizeof(bool));   // RECEIVED parity
     }
@@ -42,7 +42,7 @@ int dec (bool *data, bool *parity) {
 
     // Fill in both parity blocks, to be compared later on.
     for (int i = 0; i < DIM; i++) {
-        for (int j = 0; j < ((i < 2) ? MSIZE+1 : 2*MSIZE); j++) {
+        for (int j = 0; j < ((i < 2) ? MSIZE : 2*MSIZE-1); j++) {
             cpar[i][j] = enc_computed[howfar];
             rpar[i][j] = parity[howfar++];
         }
@@ -142,7 +142,7 @@ int dec (bool *data, bool *parity) {
     // Serialize rpar back to raw data
     howfar = 0;
     for (int i = 0; i < DIM; i++)
-        for (int j = 0; j < ((i < 2) ? MSIZE+1 : 2*MSIZE); j++)
+        for (int j = 0; j < ((i < 2) ? MSIZE : 2*MSIZE-1); j++)
             parity[howfar++] = rpar[i][j];
 
     // Free everything, we're not in the Roman empire anymore
@@ -298,7 +298,7 @@ int correctTwoTogether(bool **m, bool **cpar, bool **rpar) {
         }
         printf("\n");
     }
-
+    printf("%d", specialDim == m[0][0]);
 
     /*
     switch (specialDim) { // This is similar to correctTwoSeperate, just with an U for "Zero in this dimension"

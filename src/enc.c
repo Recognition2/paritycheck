@@ -10,7 +10,7 @@
 bool *enc (bool *data) {
     // Init
 //    const int dsize = MSIZE*MSIZE;                  // Data block size
-    const int psize = 6*MSIZE + 2;                  // Parity size
+    const int psize = 6*MSIZE - 2;                  // Parity size
 //    const int bsize = dsize + psize;                // Total block size
 
     // Memory allocation
@@ -21,7 +21,7 @@ bool *enc (bool *data) {
     // Note: This array is a "jagged array"
     bool **parity = calloc(DIM, sizeof(*parity));      // All parity bits
     for (int i = 0; i < 4; i++) {
-        size_t size = (i < 2) ? MSIZE+1 : 2*MSIZE;
+        size_t size = (i < 2) ? MSIZE : 2*MSIZE-1 ;
         parity[i] = calloc(size, sizeof(*parity[i]));
     }
 
@@ -57,15 +57,7 @@ bool *enc (bool *data) {
         free(matrix[i]);
     free(matrix);
 
-    // Calculate final parity bits
-    for (int i = 0; i < DIM; i++) {
-        int max = ((i < 2) ? MSIZE : 2 * MSIZE - 1);
-        for (int j = 0; j < max; j++)
-            parity[i][max] ^= parity[i][j];
-        // exclude the parity-of-parities in the calculation of itself, so for loop goes one less than possible.
-    }
-
-    // Printing stuff because I'm just straight up incompetent, and can't write code that works
+   // Printing stuff because I'm just straight up incompetent, and can't write code that works
 //    printf("Printing all parity bits:\n");
 //    for (int i = 0; i < DIM; i++) {
 //        for (int j = 0; j < ((i < 2) ? MSIZE+1 : 2*MSIZE); j++) {
@@ -79,7 +71,7 @@ bool *enc (bool *data) {
     bool *encoded = calloc(psize, sizeof(*encoded));
     howfar = 0;
     for (int i = 0; i < 4; i++) {
-        int max = ((i < 2) ? MSIZE+1 : 2*MSIZE);
+        int max = ((i < 2) ? MSIZE : 2*MSIZE-1);
         for (int j = 0; j < max; j++) {
             encoded[howfar++] = parity[i][j];
         }

@@ -21,7 +21,7 @@ long double convertTime(struct timespec a, struct timespec b);
 
 int main(int argc, char *argv[]) {
     const int dsize = MSIZE*MSIZE;            // Data block size
-    const int psize = 6*MSIZE + 2;            // Parity size
+    const int psize = 6*MSIZE - 2;            // Parity size
 //    const int bsize = dsize + psize;          // Total block size
 
 
@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
     //////////////////// DESTRUCTION ///////////////////////////////
     for (int i = 0; i < n; i++) {
         raw[i][(i+4)%dsize] ^= 1;
-        raw[i][(i+8)%dsize] ^= 1;
+//        raw[i][(i+8)%dsize] ^= 1;
     }
 
     for (int i = 0; i < n; i++)
