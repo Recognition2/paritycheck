@@ -7,7 +7,7 @@
 
 // Code properties
 #define DIM     4
-#define MSIZE   4
+#define MSIZE   128
 /*
  * MSIZE of 128 gives:
  * dsize = 16384
@@ -15,5 +15,8 @@
  * bsize = 17154
  * Error chance = 1e-18
  */
+
+#define likely(x)       __builtin_expect(!!(x),1)
+#define unlikely(x)     __builtin_expect(!!(x),0)
 
 #endif //FOURDIMPARITY_GLOBALS_H

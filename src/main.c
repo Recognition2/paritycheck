@@ -49,7 +49,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Encode n blocks
-    int n = 1000;
+    int n = 10000;
     bool **raw = calloc((size_t) n, sizeof(bool*)); // Allocate storage for all raw data bits
     bool **encoded = calloc((size_t) n, sizeof(bool*));
 
