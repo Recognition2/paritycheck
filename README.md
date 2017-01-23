@@ -35,10 +35,55 @@ The speedtest works quite simply:
 * First it reads a whole block of data into memory (to make sure disk access times are not counted).
 * Then the encoding operation is performed, and the result printed.
 * The time it took to do this is printed as well.
+* The data is corrupted
+* This corrupted data is fed to the decoding function
+* Print timing results
 
-An appropriate amount of iterations is as much as to read 100 MB of data out (on a modern computer). 
-This ensures your memory won't be filled, forcing the machine to swap (which is much much slower), 
-but still takes a relevant amount of time. With a 128 bit long code, this gives 7500 iterations.
+The counter can be increased manually, by default is tests 10000 blocks, or 20 MB of data.
 
-Now that the encoding has been "timed" successfully
 
+### Usage
+The `enc` function, encodes data and returns the parity bits. 
+
+The `dec` function takes the array of data and parity bits, and modifies this raw data when applying correction. 
+It returns the amount of errors that happened.
+
+### Building
+When CLion creates a project, everything is configured automatically.
+This is the recommended and easiest setup.
+
+Manual compilation has only been tested on Linux.
+
+1) Install `cmake`,`make` and `git`.
+
+Example using Ubuntu:
+```bash
+$ sudo apt-get install cmake make git
+```
+
+Using Archlinux:
+```bash
+$ sudo pacman -S make cmake git --needed
+```
+
+2) Clone the repository:
+```
+git clone https://github.com/Recognition2/paritycheck
+```
+
+3) Create a build directory in the root directory, cd to it, and execute cmake and make:
+```
+$ cd paritycheck/
+$ mkdir cmake-build-debug
+$ cd cmake-build-debug
+
+$ cmake ..
+$ make
+```
+
+The binary is now available in `cmake-build-debug/fourDimParity`.
+
+It might be sensible to generate some testing data, this can be done using OpenSSL:
+```
+openssl rand -hex $(echo "1024*1024*24" | bc) > testdata.txt
+```
